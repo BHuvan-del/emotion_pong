@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;600;700;800&family=Share+Tech+Mono&display=swap');
+@import "tailwindcss";
+
+:root {
+  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+  background-color: #030408;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: radial-gradient(circle at center, #0c122b 0%, #020306 100%);
+  color: #e2e8f0;
+}
+
+/* CRT Screen Flicker */
+@keyframes flicker {
+  0% { opacity: 0.985; }
+  50% { opacity: 0.96; }
+  100% { opacity: 0.99; }
+}
+
+/* Text glow utilities */
+.glow-text-red {
+  text-shadow: 0 0 5px rgba(239, 68, 68, 0.6), 0 0 15px rgba(239, 68, 68, 0.3);
+}
+
+.glow-text-blue {
+  text-shadow: 0 0 5px rgba(59, 130, 246, 0.6), 0 0 15px rgba(59, 130, 246, 0.3);
+}
+
+.glow-text-yellow {
+  text-shadow: 0 0 5px rgba(234, 179, 8, 0.6), 0 0 15px rgba(234, 179, 8, 0.3);
+}
+
+.glow-text-green {
+  text-shadow: 0 0 5px rgba(34, 197, 94, 0.6), 0 0 15px rgba(34, 197, 94, 0.3);
+}
+
+.glow-text-cyan {
+  text-shadow: 0 0 5px rgba(6, 182, 212, 0.6), 0 0 15px rgba(6, 182, 212, 0.3);
+}
+
+/* Custom retro arcade grid - Indigo/Blue */
+.arcade-grid {
+  background-image: 
+    linear-gradient(rgba(59, 130, 246, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center;
+}
+
+/* Scanline Overlay */
+.crt-overlay::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(239, 68, 68, 0.04), rgba(59, 130, 246, 0.02), rgba(234, 179, 8, 0.04));
+  z-index: 99;
+  background-size: 100% 4px, 6px 100%;
+  pointer-events: none;
+}
+
+/* Font helpers */
+.font-arcade {
+  font-family: 'Press Start 2P', monospace;
+}
+
+.font-mono-tech {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+}
+
+/* Glassmorphism panels (Vibrant Arcade style) */
+.retro-panel-glass-red {
+  background: rgba(12, 6, 8, 0.85);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.12);
+}
+
+.retro-panel-glass-blue {
+  background: rgba(6, 9, 16, 0.85);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.12);
+}
+
+.retro-panel-glass-yellow {
+  background: rgba(12, 10, 6, 0.85);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(234, 179, 8, 0.4);
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.12);
+}
+
+.retro-panel-glass-green {
+  background: rgba(6, 12, 8, 0.85);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.12);
+}
+
+.retro-panel-glass-cyan {
+  background: rgba(6, 12, 14, 0.85);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(6, 182, 212, 0.4);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.12);
+}
+
+/* Custom scrollbars */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin-red::-webkit-scrollbar-thumb {
+  background: #ef4444;
+  border-radius: 2px;
+}
+.scrollbar-thin-blue::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+  border-radius: 2px;
+}
+.scrollbar-thin-yellow::-webkit-scrollbar-thumb {
+  background: #eab308;
+  border-radius: 2px;
+}
+.scrollbar-thin-cyan::-webkit-scrollbar-thumb {
+  background: #06b6d4;
+  border-radius: 2px;
+}
