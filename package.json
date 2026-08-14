@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently \"npm run server\" \"vite\"",
+    "server": "node server.js",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -12,9 +13,12 @@
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
     "@tailwindcss/vite": "^4.3.3",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "sqlite3": "^6.0.1"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
@@ -22,6 +26,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "autoprefixer": "^10.5.4",
+    "concurrently": "^10.0.4",
     "oxlint": "^1.75.0",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",

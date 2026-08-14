@@ -119,36 +119,36 @@ export const ModelAccuracyPanel: React.FC<ModelAccuracyPanelProps> = ({
   const landmarkerLoad = Math.round(Math.min(95, (latency / 41.6) * 100)); // 41.6ms is 24fps budget
 
   return (
-    <div className="telemetry-panel flex flex-col bg-black border-2 border-cyan-500 font-mono text-[10px] text-cyan-500 p-3 select-none box-border uppercase leading-tight relative shadow-[0_0_15px_rgba(6,182,212,0.15)] mt-2">
+    <div className="telemetry-panel flex flex-col bg-black border-4 border-cyan-500 font-mono text-xs text-cyan-500 p-4.5 select-none box-border uppercase leading-tight relative shadow-[0_0_15px_rgba(6,182,212,0.25)] mt-2">
       {/* Scanline CRT overlay effect */}
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(0,0,0,0)_0%,rgba(0,0,0,0.4)_100%)] opacity-30 z-10"></div>
 
       {/* Header */}
-      <div className="flex justify-between items-center border-b border-cyan-500 pb-1 mb-2">
-        <span className="text-xs font-bold flex items-center gap-1">
-          <Shield className="w-3 h-3 text-cyan-400 animate-pulse" />
+      <div className="flex justify-between items-center border-b-2 border-cyan-500 pb-1.5 mb-3">
+        <span className="text-sm font-bold flex items-center gap-1">
+          <Shield className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
           AI_CLASSIFIER_ACCURACY.DAT
         </span>
-        <span className="text-[8px] text-cyan-500/80">MP_TASKS_V1.0</span>
+        <span className="text-xs text-cyan-500/80">MP_TASKS_V1.0</span>
       </div>
 
       {/* Accuracy stats P1 - RED */}
-      <div className="mb-2 border border-red-500/35 p-1.5 bg-red-950/5 text-red-400">
-        <div className="flex justify-between items-center font-bold mb-1 border-b border-red-500/20 pb-0.5">
-          <span className="text-red-300">P1 NEURAL CONFIDENCE</span>
-          <span className={detectedFaces[0] ? 'text-red-300 font-black animate-pulse' : 'text-red-800'}>
+      <div className="mb-3 border-2 border-red-500/35 p-2 bg-red-950/5 text-red-400">
+        <div className="flex justify-between items-center font-bold mb-1.5 border-b-2 border-red-500/20 pb-1">
+          <span className="text-red-300 text-xs">P1 NEURAL CONFIDENCE</span>
+          <span className={detectedFaces[0] ? 'text-red-300 font-black animate-pulse text-xs' : 'text-red-800 text-xs'}>
             {detectedFaces[0] ? `${p1Confidence}% ACC` : 'NO_SIGNAL'}
           </span>
         </div>
         
         {detectedFaces[0] ? (
-          <div className="space-y-1 text-[9px]">
+          <div className="space-y-1.5 text-[10px]">
             {/* Smile probability */}
             <div className="flex justify-between items-center">
               <span>SMILE_PROB:</span>
               <span className="text-red-300 font-bold">{p1Scores.smile}%</span>
             </div>
-            <div className="w-full bg-red-950/40 h-1 border border-red-500/20">
+            <div className="w-full bg-red-950/40 h-2 border border-red-500/20">
               <div className="bg-red-500 h-full shadow-[0_0_4px_#ef4444]" style={{ width: `${p1Scores.smile}%` }}></div>
             </div>
 
@@ -157,7 +157,7 @@ export const ModelAccuracyPanel: React.FC<ModelAccuracyPanelProps> = ({
               <span>FROWN_PROB:</span>
               <span className="text-red-300 font-bold">{p1Scores.frown}%</span>
             </div>
-            <div className="w-full bg-red-950/40 h-1 border border-red-500/20">
+            <div className="w-full bg-red-950/40 h-2 border border-red-500/20">
               <div className="bg-red-500/60 h-full" style={{ width: `${p1Scores.frown}%` }}></div>
             </div>
 
@@ -166,32 +166,32 @@ export const ModelAccuracyPanel: React.FC<ModelAccuracyPanelProps> = ({
               <span>BROW_FURROW:</span>
               <span className="text-red-300 font-bold">{p1Scores.brows}%</span>
             </div>
-            <div className="w-full bg-red-950/40 h-1 border border-red-500/20">
+            <div className="w-full bg-red-950/40 h-2 border border-red-500/20">
               <div className="bg-red-500/60 h-full" style={{ width: `${p1Scores.brows}%` }}></div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-2 text-red-900/60 animate-pulse">AWAITING P1 INPUT SIGNAL</div>
+          <div className="text-center py-4 text-red-900/60 font-bold animate-pulse text-[10px]">AWAITING P1 INPUT SIGNAL</div>
         )}
       </div>
 
       {/* Accuracy stats P2 - BLUE */}
-      <div className="mb-2 border border-blue-500/35 p-1.5 bg-blue-950/5 text-blue-400">
-        <div className="flex justify-between items-center font-bold mb-1 border-b border-blue-500/20 pb-0.5">
-          <span className="text-blue-300">P2 NEURAL CONFIDENCE</span>
-          <span className={detectedFaces[1] ? 'text-blue-300 font-black animate-pulse' : 'text-blue-800'}>
+      <div className="mb-3 border-2 border-blue-500/35 p-2 bg-blue-950/5 text-blue-400">
+        <div className="flex justify-between items-center font-bold mb-1.5 border-b-2 border-blue-500/20 pb-1">
+          <span className="text-blue-300 text-xs">P2 NEURAL CONFIDENCE</span>
+          <span className={detectedFaces[1] ? 'text-blue-300 font-black animate-pulse text-xs' : 'text-blue-800 text-xs'}>
             {detectedFaces[1] ? `${p2Confidence}% ACC` : 'NO_SIGNAL'}
           </span>
         </div>
         
         {detectedFaces[1] ? (
-          <div className="space-y-1 text-[9px]">
+          <div className="space-y-1.5 text-[10px]">
             {/* Smile probability */}
             <div className="flex justify-between items-center">
               <span>SMILE_PROB:</span>
               <span className="text-blue-300 font-bold">{p2Scores.smile}%</span>
             </div>
-            <div className="w-full bg-blue-950/40 h-1 border border-blue-500/20">
+            <div className="w-full bg-blue-950/40 h-2 border border-blue-500/20">
               <div className="bg-blue-500 h-full shadow-[0_0_4px_#3b82f6]" style={{ width: `${p2Scores.smile}%` }}></div>
             </div>
 
@@ -200,7 +200,7 @@ export const ModelAccuracyPanel: React.FC<ModelAccuracyPanelProps> = ({
               <span>FROWN_PROB:</span>
               <span className="text-blue-300 font-bold">{p2Scores.frown}%</span>
             </div>
-            <div className="w-full bg-blue-950/40 h-1 border border-blue-500/20">
+            <div className="w-full bg-blue-950/40 h-2 border border-blue-500/20">
               <div className="bg-blue-500/60 h-full" style={{ width: `${p2Scores.frown}%` }}></div>
             </div>
 
@@ -209,33 +209,33 @@ export const ModelAccuracyPanel: React.FC<ModelAccuracyPanelProps> = ({
               <span>BROW_FURROW:</span>
               <span className="text-blue-300 font-bold">{p2Scores.brows}%</span>
             </div>
-            <div className="w-full bg-blue-950/40 h-1 border border-blue-500/20">
+            <div className="w-full bg-blue-950/40 h-2 border border-blue-500/20">
               <div className="bg-blue-500/60 h-full" style={{ width: `${p2Scores.brows}%` }}></div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-2 text-blue-900/60 animate-pulse">
+          <div className="text-center py-4 text-blue-900/60 font-bold animate-pulse text-[10px]">
             {detectedFaces[0] ? 'P2 EMULATION: COMPUTER AI' : 'AWAITING P2 INPUT SIGNAL'}
           </div>
         )}
       </div>
 
       {/* Hardware / Engine Load */}
-      <div className="border border-cyan-500/30 p-1.5 bg-cyan-950/5">
-        <div className="flex justify-between text-[8px] text-cyan-400 mb-1">
+      <div className="border-2 border-cyan-500/30 p-2.5 bg-cyan-950/5">
+        <div className="flex justify-between text-[10px] text-cyan-400 mb-1.5 font-bold">
           <span>AI ENGINE DIAGNOSTICS</span>
           <span>VAL_ACC: HIGH</span>
         </div>
-        <div className="grid grid-cols-2 gap-1 text-[8px]">
-          <div className="border border-cyan-500/25 p-1">
+        <div className="grid grid-cols-2 gap-2 text-[10px]">
+          <div className="border border-cyan-500/25 p-2 bg-cyan-950/20">
             <div>JITTER_SD:</div>
-            <div className="font-bold text-white">
+            <div className="font-bold text-white text-xs mt-0.5">
               {detectedFaces[0] ? `${(jitterP1 * 1000).toFixed(2)} px` : '0.00 px'}
             </div>
           </div>
-          <div className="border border-cyan-500/25 p-1">
+          <div className="border border-cyan-500/25 p-2 bg-cyan-950/20">
             <div>NPU_LOAD:</div>
-            <div className="font-bold text-white">{latency > 0 ? `${landmarkerLoad}%` : '0%'}</div>
+            <div className="font-bold text-white text-xs mt-0.5">{latency > 0 ? `${landmarkerLoad}%` : '0%'}</div>
           </div>
         </div>
       </div>

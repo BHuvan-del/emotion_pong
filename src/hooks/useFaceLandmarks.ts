@@ -166,8 +166,8 @@ export const useFaceLandmarks = () => {
           };
         });
 
-        // Sort faces left-to-right (Left face is smaller X, i.e., Player 1)
-        faces.sort((a, b) => a.avgX - b.avgX);
+        // Sort faces descending by raw X to map mirrored screen-left to Player 1
+        faces.sort((a, b) => b.avgX - a.avgX);
 
         // Apply calibration to sorted faces
         const calibratedFaces = faces.map((face, index) => {

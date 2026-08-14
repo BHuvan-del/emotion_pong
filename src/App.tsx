@@ -25,13 +25,17 @@ import {
   getAudioContext 
 } from './utils/audio';
 
-type ScreenState = 'hook' | 'calibrate' | 'match' | 'reveal';
+type ScreenState = 'login' | 'hook' | 'calibrate' | 'match' | 'reveal';
 type CalibrationStep = 'idle' | 'neutral' | 'smile' | 'frown' | 'complete';
 
 export default function App() {
-  const [screen, setScreen] = useState<ScreenState>('hook');
+  const [screen, setScreen] = useState<ScreenState>('login');
   const [p1Name, setP1Name] = useState('Player 1');
   const [p2Name, setP2Name] = useState('Player 2');
+  const [p1Contact, setP1Contact] = useState('');
+  const [p2Contact, setP2Contact] = useState('');
+  const [isSubmittingLeads, setIsSubmittingLeads] = useState(false);
+  const [leadError, setLeadError] = useState('');
   
   // Game metrics for leaderboard
   const [matchScore, setMatchScore] = useState({ p1: 0, p2: 0 });
@@ -100,33 +104,56 @@ export default function App() {
     };
   }, [screen, muted]);
 
-  // Auto-start tracking on mount to support "Smile to Start"
-  useEffect(() => {
-    const initTracking = async () => {
-      await new Promise(r => setTimeout(r, 600));
-      if (videoRef.current) {
-        startTracking(videoRef.current);
-      }
-    };
-    initTracking();
-    return () => {
-      stopTracking();
-    };
-  }, [videoRef]);
-
-  // Smile to Start trigger on Hook Screen
-  useEffect(() => {
-    if (screen === 'hook' && detectedFaces.length > 0) {
-      const someoneSmiling = detectedFaces.some(face => face.rawSmileMetric > 0.45);
-      if (someoneSmiling) {
-        handleStartArcade();
-      }
+  const handleRegisterAndStart = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!p1Name.trim() || !p1Contact.trim()) {
+      setLeadError('PLAYER 1 NAME AND CONTACT NUMBER ARE REQUIRED!');
+      return;
     }
-  }, [detectedFaces, screen]);
+    
+    setIsSubmittingLeads(true);
+    setLeadError('');
+    
+    try {
+      // Register Player 1
+      await fetch('http://localhost:3001/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: p1Name.trim(), contact: p1Contact.trim() })
+      });
+      
+      // Register Player 2 if provided
+      if (p2Name.trim() && p2Name !== 'Player 2' && p2Contact.trim()) {
+        await fetch('http://localhost:3001/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: p2Name.trim(), contact: p2Contact.trim() })
+        });
+      } else if (!p2Name.trim() || p2Name === 'Player 2') {
+        setP2Name('COMPUTER');
+      }
+      
+      setScreen('hook');
+    } catch (err) {
+      console.warn("SQL Database offline. Continuing locally.", err);
+      if (!p2Name.trim() || p2Name === 'Player 2') {
+        setP2Name('COMPUTER');
+      }
+      setScreen('hook');
+    } finally {
+      setIsSubmittingLeads(false);
+    }
+  };
 
+  // Sync camera when entering calibrate screen
   const handleStartArcade = () => {
     getAudioContext();
     setScreen('calibrate');
+    setTimeout(() => {
+      if (videoRef.current) {
+        startTracking(videoRef.current);
+      }
+    }, 100);
   };
 
   // Render Face Meshes on overlay canvas in real time
@@ -396,6 +423,7 @@ export default function App() {
   };
 
   const handleReturnMenu = () => {
+    stopTracking();
     stopBackgroundMusic();
     setIsPaused(false);
     isPausedRef.current = false;
@@ -470,37 +498,112 @@ export default function App() {
 
         {!isLoading && !error && (
           <>
+            {/* 0. LOGIN SCREEN */}
+            {screen === 'login' && (
+              <div className="flex flex-col items-center justify-between text-center gap-6 max-w-lg">
+                <div className="flex flex-col items-center gap-2">
+                  <h1 className="font-arcade text-3xl sm:text-4xl tracking-tighter animate-[pulse_1.5s_infinite] select-none">
+                    <span className="text-[#ff2400] glow-text-red">EMOTION</span> <span className="text-[#007fff] glow-text-blue">PONG</span>
+                  </h1>
+                  <p className="text-xs font-arcade text-yellow-600 tracking-wide mt-1">
+                    STALL LEAD CAPTURE & REGISTRATION
+                  </p>
+                </div>
+
+                <form onSubmit={handleRegisterAndStart} className="border-4 border-yellow-500 p-8 bg-black/60 relative w-full flex flex-col gap-5 shadow-[0_0_20px_rgba(234,179,8,0.2)] text-left select-none max-w-md">
+                  <div className="absolute top-2 left-2 text-[8px] text-yellow-600 font-mono">SQL_DATABASE_CONNECT // PORT 3001</div>
+                  
+                  {leadError && (
+                    <div className="text-[10px] font-mono text-red-500 border border-red-500/50 p-2 bg-red-950/20 text-center uppercase">
+                      {leadError}
+                    </div>
+                  )}
+
+                  {/* Player 1 details */}
+                  <div className="flex flex-col border border-red-500/50 bg-black/40 p-3">
+                    <label className="text-[9px] font-arcade text-red-400 mb-1">PLAYER 1 NAME *</label>
+                    <input 
+                      type="text" 
+                      placeholder="ENTER NAME"
+                      value={p1Name === 'Player 1' ? '' : p1Name} 
+                      onChange={(e) => setP1Name(e.target.value.substring(0, 15))} 
+                      className="bg-black border border-red-500/30 text-red-400 p-2 text-xs font-mono uppercase focus:border-red-500 focus:outline-none"
+                      required
+                    />
+                    <label className="text-[9px] font-arcade text-red-400 mt-2 mb-1">PLAYER 1 CONTACT NUMBER *</label>
+                    <input 
+                      type="tel" 
+                      placeholder="ENTER CONTACT NUMBER"
+                      value={p1Contact} 
+                      onChange={(e) => setP1Contact(e.target.value.substring(0, 15))} 
+                      className="bg-black border border-red-500/30 text-red-400 p-2 text-xs font-mono focus:border-red-500 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  {/* Player 2 details */}
+                  <div className="flex flex-col border border-blue-500/50 bg-black/40 p-3">
+                    <label className="text-[9px] font-arcade text-blue-400 mb-1">PLAYER 2 NAME (OPTIONAL)</label>
+                    <input 
+                      type="text" 
+                      placeholder="ENTER P2 NAME"
+                      value={p2Name === 'Player 2' ? '' : p2Name} 
+                      onChange={(e) => setP2Name(e.target.value.substring(0, 15))} 
+                      className="bg-black border border-blue-500/30 text-blue-400 p-2 text-xs font-mono uppercase focus:border-blue-500 focus:outline-none"
+                    />
+                    <label className="text-[9px] font-arcade text-blue-400 mt-2 mb-1">PLAYER 2 CONTACT NUMBER (OPTIONAL)</label>
+                    <input 
+                      type="tel" 
+                      placeholder="ENTER P2 CONTACT NUMBER"
+                      value={p2Contact} 
+                      onChange={(e) => setP2Contact(e.target.value.substring(0, 15))} 
+                      className="bg-black border border-blue-500/30 text-blue-400 p-2 text-xs font-mono focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmittingLeads}
+                    className="w-full py-3 border-2 border-yellow-500 bg-yellow-950/30 font-arcade text-xs text-yellow-500 cursor-pointer hover:bg-yellow-500 hover:text-black transition-all flex justify-center items-center gap-2 select-none active:scale-95 disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 fill-current" />
+                    {isSubmittingLeads ? 'SAVING DATA...' : 'ENTER GAME CABINET'}
+                  </button>
+                </form>
+              </div>
+            )}
+
             {/* 1. HOOK SCREEN */}
             {screen === 'hook' && (
               <div className="flex flex-col items-center justify-between text-center gap-6 max-w-lg">
                 <div className="flex flex-col items-center gap-2">
-                  <h1 className="font-arcade text-2xl sm:text-3xl tracking-tighter animate-[pulse_1.5s_infinite]">
+                  <h1 className="font-arcade text-3xl sm:text-4xl tracking-tighter animate-[pulse_1.5s_infinite]">
                     <span className="text-[#ff2400] glow-text-red">EMOTION</span> <span className="text-[#007fff] glow-text-blue">PONG</span>
                   </h1>
-                  <p className="text-[9px] font-arcade text-yellow-600 tracking-wide mt-1">
+                  <p className="text-xs font-arcade text-yellow-500 tracking-wide mt-2">
                     FACIAL RECOGNITION ARCADE EXPERIENCE
                   </p>
                 </div>
 
                 {/* Simulated CRT Screen Preview box */}
-                <div className="border-4 border-yellow-500 p-8 bg-black/60 relative w-full aspect-[4/3] flex flex-col justify-center items-center gap-4 shadow-[0_0_20px_rgba(234,179,8,0.15)] select-none">
-                  <div className="absolute top-2 left-2 text-[8px] text-yellow-600 font-mono">CRT_STALL_SYS // PORT 9600</div>
-                  <div className="absolute top-2 right-2 text-[8px] text-yellow-600 font-mono">1v1_MODE</div>
+                <div className="border-4 border-yellow-500 p-10 bg-black/60 relative w-full aspect-[4/3] flex flex-col justify-center items-center gap-4 shadow-[0_0_20px_rgba(234,179,8,0.2)] select-none max-w-md">
+                  <div className="absolute top-2 left-2 text-[10px] text-yellow-500 font-mono font-semibold">CRT_STALL_SYS // PORT 9600</div>
+                  <div className="absolute top-2 right-2 text-[10px] text-yellow-500 font-mono font-semibold">1v1_MODE</div>
                   
-                  <div className="font-arcade text-sm text-yellow-400 animate-pulse glow-text-yellow mt-4">
-                    SMILE TO START
+                  <div className="font-arcade text-base text-yellow-400 animate-pulse glow-text-yellow mt-4">
+                    PRESS START CABINET
                   </div>
                   
-                  <div className="text-[8px] font-mono text-yellow-500/80 leading-relaxed text-center max-w-xs mt-2 border border-yellow-500/30 p-2 bg-yellow-950/10">
+                  <div className="text-xs font-mono text-yellow-300 leading-relaxed text-center max-w-sm mt-2 border border-yellow-500/50 p-4 bg-yellow-950/20">
                     PADDLE 1 CONTROLLED BY SMILE (▲) & FROWN (▼) OF LEFT PLAYER.<br/>
                     PADDLE 2 CONTROLLED BY SMILE (▲) & FROWN (▼) OF RIGHT PLAYER.<br/>
-                    * BALL SPEDS UP WITH EACH SCORE FOR MAXIMUM INTENSITY! *
+                    * BALL SPEEDS UP WITH EACH SCORE FOR MAXIMUM INTENSITY! *
                   </div>
                 </div>
 
                 <button
                   onClick={handleStartArcade}
-                  className="px-6 py-3 border-2 border-yellow-500 bg-yellow-950/30 font-arcade text-xs text-yellow-500 cursor-pointer hover:bg-yellow-500 hover:text-black transition-all flex items-center gap-2 select-none shadow-[0_0_10px_rgba(234,179,8,0.2)] active:scale-95"
+                  className="px-8 py-4 border-2 border-yellow-500 bg-yellow-950/30 font-arcade text-sm text-yellow-500 cursor-pointer hover:bg-yellow-500 hover:text-black transition-all flex items-center gap-2 select-none shadow-[0_0_10px_rgba(234,179,8,0.25)] active:scale-95"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   START GAME CABINET
@@ -512,28 +615,28 @@ export default function App() {
             {screen === 'calibrate' && (
               <div className="w-full flex flex-col items-center gap-4">
                 <div className="text-center">
-                  <h2 className="font-arcade text-sm glow-text-yellow mb-1">PLAYER REGISTRATION & CALIBRATION</h2>
-                  <p className="text-[9px] text-yellow-600 font-mono">SIT SIDE-BY-SIDE IN FRONT OF THE CAMERA. ADJUST LIGHTING.</p>
+                  <h2 className="font-arcade text-base glow-text-yellow mb-2">PLAYER REGISTRATION & CALIBRATION</h2>
+                  <p className="text-xs text-yellow-400 font-mono font-semibold">SIT SIDE-BY-SIDE IN FRONT OF THE CAMERA. ADJUST LIGHTING.</p>
                 </div>
 
                 {/* Input Fields */}
                 <div className="grid grid-cols-2 gap-4 w-full max-w-md">
-                  <div className="flex flex-col border border-yellow-500/50 bg-black/40 p-1.5">
-                    <label className="text-[8px] font-arcade text-red-400 mb-0.5">P1 NAME (RED PADDLE)</label>
+                  <div className="flex flex-col border border-yellow-500/50 bg-black/40 p-2.5">
+                    <label className="text-[10px] font-arcade text-red-400 mb-1">P1 NAME (RED PADDLE)</label>
                     <input 
                       type="text" 
                       value={p1Name} 
-                      onChange={(e) => setP1Name(e.target.value.substring(0, 10))} 
-                      className="bg-black border border-red-500/30 text-red-400 p-1 text-[10px] font-mono uppercase focus:border-red-500 focus:outline-none"
+                      onChange={(e) => setP1Name(e.target.value.substring(0, 15))} 
+                      className="bg-black border border-red-500/30 text-red-400 p-2 text-xs font-mono uppercase focus:border-red-500 focus:outline-none"
                     />
                   </div>
-                  <div className="flex flex-col border border-yellow-500/50 bg-black/40 p-1.5">
-                    <label className="text-[8px] font-arcade text-blue-400 mb-0.5">P2 NAME (BLUE PADDLE)</label>
+                  <div className="flex flex-col border border-yellow-500/50 bg-black/40 p-2.5">
+                    <label className="text-[10px] font-arcade text-blue-400 mb-1">P2 NAME (BLUE PADDLE)</label>
                     <input 
                       type="text" 
                       value={p2Name} 
-                      onChange={(e) => setP2Name(e.target.value.substring(0, 10))} 
-                      className="bg-black border border-blue-500/30 text-blue-400 p-1 text-[10px] font-mono uppercase focus:border-blue-500 focus:outline-none"
+                      onChange={(e) => setP2Name(e.target.value.substring(0, 15))} 
+                      className="bg-black border border-blue-500/30 text-blue-400 p-2 text-xs font-mono uppercase focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -553,12 +656,12 @@ export default function App() {
                     <div className="absolute inset-0 bg-black/85 flex flex-col justify-center items-center text-center p-6 border-2 border-yellow-500">
                       {calCountdown > 0 ? (
                         <>
-                          <div className="font-arcade text-xs text-yellow-400 mb-3">GET READY TO CALIBRATE</div>
-                          <div className="font-arcade text-2xl text-yellow-300 animate-ping">{calCountdown}</div>
-                          <div className="text-[9px] font-mono text-yellow-500 mt-6">
+                          <div className="font-arcade text-sm text-yellow-400 mb-3">GET READY TO CALIBRATE</div>
+                          <div className="font-arcade text-4xl text-yellow-300 animate-ping">{calCountdown}</div>
+                          <div className="text-sm font-mono text-yellow-300 font-bold mt-6">
                             {calStep === 'neutral' && 'LOOK NEUTRAL AND RELAXED'}
                             {calStep === 'smile' && 'SMILE AS WIDE AS YOU CAN'}
-                            {calStep === 'frown' && 'FROWN / PURSE LIPS / furrow eyebrows'}
+                            {calStep === 'frown' && 'FROWN / PURSE LIPS / FURROW EYEBROWS'}
                           </div>
                         </>
                       ) : (
@@ -575,7 +678,7 @@ export default function App() {
 
                   {/* Face detection warning helper */}
                   {calStep === 'idle' && (
-                    <div className={`absolute bottom-2 left-2 right-2 border p-1 text-center font-mono text-[9px] animate-pulse ${
+                    <div className={`absolute bottom-2 left-2 right-2 border-2 p-2.5 text-center font-mono text-xs animate-pulse ${
                       detectedFaces.length === 0 
                         ? 'bg-red-950/80 border-red-500 text-red-500' 
                         : detectedFaces.length === 1 
@@ -596,7 +699,7 @@ export default function App() {
                     <button
                       onClick={startCalibrationSequence}
                       disabled={detectedFaces.length < 1}
-                      className={`px-4 py-2 border-2 font-arcade text-[10px] transition-all ${
+                      className={`px-6 py-3 border-2 font-arcade text-xs transition-all ${
                         detectedFaces.length < 1 
                           ? 'border-yellow-950 text-yellow-800 bg-black/20 cursor-not-allowed'
                           : 'border-yellow-500 text-yellow-500 bg-yellow-950/20 cursor-pointer hover:bg-yellow-500 hover:text-black active:scale-95'
@@ -609,7 +712,7 @@ export default function App() {
                   {calStep === 'complete' && (
                     <button
                       onClick={handleStartMatch}
-                      className="px-6 py-2 border-2 border-yellow-500 bg-yellow-950/20 text-yellow-500 font-arcade text-[10px] cursor-pointer hover:bg-yellow-500 hover:text-black active:scale-95 transition-all animate-pulse"
+                      className="px-8 py-3 border-2 border-yellow-500 bg-yellow-950/20 text-yellow-500 font-arcade text-xs cursor-pointer hover:bg-yellow-500 hover:text-black active:scale-95 transition-all animate-pulse"
                     >
                       START MATCH
                     </button>
@@ -617,7 +720,7 @@ export default function App() {
 
                   <button
                     onClick={handleReturnMenu}
-                    className="px-4 py-2 border-2 border-red-500/50 bg-red-950/15 text-red-500 font-arcade text-[10px] cursor-pointer hover:bg-red-500 hover:text-black active:scale-95 transition-all"
+                    className="px-6 py-3 border-2 border-red-500/50 bg-red-950/15 text-red-500 font-arcade text-xs cursor-pointer hover:bg-red-500 hover:text-black active:scale-95 transition-all"
                   >
                     RETURN TO MENU
                   </button>
@@ -630,7 +733,7 @@ export default function App() {
               <div className="w-full flex flex-col lg:flex-row gap-4 items-stretch justify-center h-full max-h-[580px]">
                 {/* LEFT COLUMN: GAME PANEL */}
                 <div className="flex-[2] flex flex-col justify-center gap-2 min-w-0">
-                  <div className="flex justify-between items-center border border-yellow-500/30 bg-black/60 p-2 text-[9px] font-mono text-yellow-500">
+                  <div className="flex justify-between items-center border-2 border-yellow-500/30 bg-black/85 p-3.5 text-xs font-mono text-yellow-500">
                     <div className="flex items-center gap-2">
                       <span className={isPaused ? "text-red-500 animate-pulse font-bold" : "animate-pulse"}>
                         ● STATUS: {isPaused ? 'PAUSED' : 'ACTIVE'}
@@ -639,11 +742,10 @@ export default function App() {
                       <span>1v1 EMOTION PROGRESSION CLASH</span>
                     </div>
                     
-                    {/* Control Buttons */}
                     <div className="flex gap-2">
                       <button
                         onClick={() => setIsPaused(!isPaused)}
-                        className={`px-2 py-0.5 border font-arcade text-[7px] cursor-pointer select-none active:scale-95 transition-all ${
+                        className={`px-3 py-1 border-2 font-arcade text-[10px] cursor-pointer select-none active:scale-95 transition-all ${
                           isPaused
                             ? 'border-green-500 bg-green-950/20 text-green-500 hover:bg-green-500 hover:text-black'
                             : 'border-yellow-500 bg-yellow-950/20 text-yellow-500 hover:bg-yellow-500 hover:text-black'
@@ -653,7 +755,7 @@ export default function App() {
                       </button>
                       <button
                         onClick={handleReturnMenu}
-                        className="px-2 py-0.5 border border-red-500 bg-red-950/20 text-red-500 hover:bg-red-500 hover:text-black font-arcade text-[7px] cursor-pointer select-none active:scale-95 transition-all"
+                        className="px-3 py-1 border-2 border-red-500 bg-red-950/20 text-red-500 hover:bg-red-500 hover:text-black font-arcade text-[10px] cursor-pointer select-none active:scale-95 transition-all"
                       >
                         QUIT
                       </button>
@@ -676,7 +778,7 @@ export default function App() {
                   <div className="flex justify-between items-center border border-yellow-500/30 bg-black/60 p-2 mt-1">
                     <div className="flex items-center gap-2">
                       <Camera className="w-4.5 h-4.5 text-yellow-500/70" />
-                      <span className="text-[9px] font-mono text-yellow-500/80">CAMERA STREAM & WIREFRAME</span>
+                      <span className="text-xs font-mono text-yellow-500/80">CAMERA STREAM & WIREFRAME</span>
                     </div>
                     {/* Micro camera canvas feed */}
                     <div className="relative w-36 aspect-[4/3] border border-yellow-500 bg-black overflow-hidden">
@@ -711,27 +813,27 @@ export default function App() {
 
             {/* 4. REVEAL SCREEN */}
             {screen === 'reveal' && (
-              <div className="w-full flex flex-col md:flex-row gap-6 max-w-4xl justify-center items-stretch py-2">
+              <div className="w-full flex flex-col md:flex-row gap-6 max-w-4xl justify-center items-stretch py-2 font-mono">
                 {/* MATCH RESULTS STATS */}
-                <div className="flex-1 p-4 font-mono uppercase retro-panel-glass-yellow text-yellow-500 flex flex-col justify-between shadow-[0_0_15px_rgba(234,179,8,0.15)] min-h-[350px]">
-                  <div className="border-b border-yellow-500 pb-1.5 mb-3 flex items-center gap-2 justify-between">
-                    <span className="text-xs font-arcade glow-text-yellow">MATCH RESULTS SUMMARY</span>
+                <div className="flex-1 p-6 uppercase retro-panel-glass-yellow text-yellow-500 flex flex-col justify-between shadow-[0_0_15px_rgba(234,179,8,0.2)] min-h-[380px]">
+                  <div className="border-b border-yellow-500 pb-2.5 mb-3 flex items-center gap-2 justify-between">
+                    <span className="text-sm font-arcade glow-text-yellow">MATCH RESULTS SUMMARY</span>
                     <Sparkles className="w-3.5 h-3.5 text-yellow-400 animate-spin" />
                   </div>
 
                   <div className="flex flex-col items-center text-center gap-2 my-2">
-                    <span className="text-[8px] font-arcade text-yellow-600">WINNER REVEALED</span>
-                    <h3 className="font-arcade text-base sm:text-lg glow-text-yellow text-yellow-300 animate-[bounce_1s_infinite]">
+                    <span className="text-[10px] font-arcade text-yellow-600">WINNER REVEALED</span>
+                    <h3 className="font-arcade text-lg sm:text-xl glow-text-yellow text-yellow-300 animate-[bounce_1s_infinite]">
                       🏆 {winnerName}
                     </h3>
-                    <div className="font-arcade text-sm border-2 border-yellow-500/50 px-4 py-1 mt-2 text-yellow-400 bg-yellow-950/15">
+                    <div className="font-arcade text-base border-2 border-yellow-500/50 px-6 py-2 mt-2 text-yellow-400 bg-yellow-950/15">
                       FINAL: {matchScore.p1} - {matchScore.p2}
                     </div>
                   </div>
 
                   {/* DATA METRICS */}
-                  <div className="border border-yellow-500/50 p-2 my-2 bg-yellow-950/5 space-y-1.5 text-[9px]">
-                    <div className="font-bold border-b border-yellow-500/30 pb-0.5 text-yellow-400 mb-1 text-center">
+                  <div className="border-2 border-yellow-500/50 p-3.5 my-2 bg-yellow-950/5 space-y-2.5 text-xs">
+                    <div className="font-bold border-b border-yellow-500/30 pb-1 text-yellow-400 mb-1 text-center">
                       SPATIAL MOVEMENT & PERFORMANCE DATA
                     </div>
                     <div className="flex justify-between">
@@ -756,14 +858,14 @@ export default function App() {
                   <div className="flex gap-2 mt-4">
                     <button
                       onClick={handlePlayAgain}
-                      className="flex-1 py-2 border-2 border-yellow-500 bg-yellow-950/20 text-yellow-500 font-arcade text-[9px] cursor-pointer hover:bg-yellow-500 hover:text-black active:scale-95 transition-all text-center flex items-center justify-center gap-1"
+                      className="flex-1 py-3 border-2 border-yellow-500 bg-yellow-950/20 text-yellow-500 font-arcade text-xs cursor-pointer hover:bg-yellow-500 hover:text-black active:scale-95 transition-all text-center flex items-center justify-center gap-1.5"
                     >
-                      <RotateCcw className="w-3 h-3" />
+                      <RotateCcw className="w-3.5 h-3.5" />
                       PLAY AGAIN
                     </button>
                     <button
                       onClick={handleReturnMenu}
-                      className="flex-1 py-2 border-2 border-red-500 bg-red-950/20 text-red-500 font-arcade text-[9px] cursor-pointer hover:bg-red-500 hover:text-black active:scale-95 transition-all text-center flex items-center justify-center gap-1"
+                      className="flex-1 py-3 border-2 border-red-500 bg-red-950/20 text-red-500 font-arcade text-xs cursor-pointer hover:bg-red-500 hover:text-black active:scale-95 transition-all text-center flex items-center justify-center gap-1.5"
                     >
                       MAIN MENU
                     </button>
@@ -781,7 +883,7 @@ export default function App() {
       </main>
 
       {/* FOOTER SECTION */}
-      <footer className="w-full max-w-7xl border-t border-yellow-500/30 pt-2 flex justify-between items-center text-[7px] font-mono text-yellow-600/80 z-10 uppercase">
+      <footer className="w-full max-w-7xl border-t border-yellow-500/30 pt-2 flex justify-between items-center text-[10px] font-mono text-yellow-600/80 z-10 uppercase">
         <span>STALL_HARDWARE: DISCOVERABLE</span>
         <span>© 2026 INSTITUTION OF ELECTRONICS AND TELECOMMUNICATION ENGINEERS</span>
         <span>SYSTEM_STATUS: OK</span>

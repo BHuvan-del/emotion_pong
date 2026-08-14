@@ -70,9 +70,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       state.serveDirection = Math.random() > 0.5 ? 1 : -1;
     }
     
-    // Calculate speed progression: Base speed escalates with each point scored
+    // Calculate speed progression: Base speed escalates with each point scored (starts at 7.0, grows by 1.20 per score)
     const totalScore = state.p1Score + state.p2Score;
-    const baseSpeed = 5.0 + totalScore * 0.90; // Increases by 0.85 per point!
+    const baseSpeed = 12.0 + totalScore * 1.20;
     
     // Set starting speed
     state.ballSpeedX = state.serveDirection * baseSpeed;
@@ -151,8 +151,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2);
           const bounceAngle = normalizedIntersectY * (Math.PI / 3.5); // max 51 degree bounce
 
-          // Increase speed slightly on hit for excitement
-          const speed = Math.min(20.0, Math.abs(state.ballSpeedX) * 1.05);
+          // Increase speed on hit for excitement (8% speedup up to 24.0 max speed)
+          const speed = Math.min(24.0, Math.abs(state.ballSpeedX) * 1.08);
           state.ballSpeedX = speed;
           state.ballSpeedY = -speed * Math.sin(bounceAngle);
           
@@ -173,7 +173,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2);
           const bounceAngle = normalizedIntersectY * (Math.PI / 3.5); // max 51 degree bounce
 
-          const speed = Math.min(20.0, Math.abs(state.ballSpeedX) * 1.05);
+          const speed = Math.min(24.0, Math.abs(state.ballSpeedX) * 1.08);
           state.ballSpeedX = -speed;
           state.ballSpeedY = -speed * Math.sin(bounceAngle);
           
@@ -320,9 +320,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       ctx.fillText(`PAUSED`, width / 2, height / 2 - 10);
       ctx.shadowBlur = 0;
       
-      ctx.font = '9px "Press Start 2P", "Courier New", monospace';
+      ctx.font = '12px "Press Start 2P", "Courier New", monospace';
       ctx.fillStyle = '#ffd700';
-      ctx.fillText(`PRESS RESUME TO CONTINUE`, width / 2, height / 2 + 25);
+      ctx.fillText(`PRESS RESUME TO CONTINUE`, width / 2, height / 2 + 30);
     }
 
     requestRef.current = requestAnimationFrame(gameLoop);
