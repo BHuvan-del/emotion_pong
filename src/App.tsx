@@ -730,9 +730,9 @@ export default function App() {
 
             {/* 3. MATCH SCREEN */}
             {screen === 'match' && (
-              <div className="w-full flex flex-col lg:flex-row gap-4 items-stretch justify-center h-full max-h-[580px]">
+              <div className="w-full flex flex-col lg:flex-row gap-6 items-stretch justify-center h-full">
                 {/* LEFT COLUMN: GAME PANEL */}
-                <div className="flex-[2] flex flex-col justify-center gap-2 min-w-0">
+                <div className="flex-[3.5] flex flex-col justify-center gap-2 min-w-0">
                   <div className="flex justify-between items-center border-2 border-yellow-500/30 bg-black/85 p-3.5 text-xs font-mono text-yellow-500">
                     <div className="flex items-center gap-2">
                       <span className={isPaused ? "text-red-500 animate-pulse font-bold" : "animate-pulse"}>

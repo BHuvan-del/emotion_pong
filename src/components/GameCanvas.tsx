@@ -28,12 +28,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const requestRef = useRef<number | null>(null);
 
-  // Game coordinates and sizes
-  const width = 800;
-  const height = 450;
-  const paddleWidth = 14;
-  const paddleHeight = 80;
-  const ballSize = 12;
+  // Game coordinates and sizes (scaled to 1.5x resolution for huge projection screens)
+  const width = 1200;
+  const height = 675;
+  const paddleWidth = 18;
+  const paddleHeight = 120;
+  const ballSize = 16;
 
   // Game physics state
   const stateRef = useRef({
@@ -70,9 +70,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       state.serveDirection = Math.random() > 0.5 ? 1 : -1;
     }
     
-    // Calculate speed progression: Base speed escalates with each point scored (starts at 7.0, grows by 1.20 per score)
+    // Calculate speed progression: Base speed escalates with each point scored (starts at 10.5, grows by 1.80 per score)
     const totalScore = state.p1Score + state.p2Score;
-    const baseSpeed = 12.0 + totalScore * 1.20;
+    const baseSpeed = 10.5 + totalScore * 1.80;
     
     // Set starting speed
     state.ballSpeedX = state.serveDirection * baseSpeed;
@@ -151,8 +151,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2);
           const bounceAngle = normalizedIntersectY * (Math.PI / 3.5); // max 51 degree bounce
 
-          // Increase speed on hit for excitement (8% speedup up to 24.0 max speed)
-          const speed = Math.min(24.0, Math.abs(state.ballSpeedX) * 1.08);
+          // Increase speed on hit for excitement (8% speedup up to 36.0 max speed)
+          const speed = Math.min(36.0, Math.abs(state.ballSpeedX) * 1.08);
           state.ballSpeedX = speed;
           state.ballSpeedY = -speed * Math.sin(bounceAngle);
           
@@ -173,7 +173,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2);
           const bounceAngle = normalizedIntersectY * (Math.PI / 3.5); // max 51 degree bounce
 
-          const speed = Math.min(24.0, Math.abs(state.ballSpeedX) * 1.08);
+          const speed = Math.min(36.0, Math.abs(state.ballSpeedX) * 1.08);
           state.ballSpeedX = -speed;
           state.ballSpeedY = -speed * Math.sin(bounceAngle);
           
@@ -276,53 +276,53 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     // Draw Score UI - Glowing Gold Coin
     ctx.fillStyle = '#ffd700';
     ctx.shadowColor = '#ffd700';
-    ctx.shadowBlur = 8;
-    ctx.font = '36px "Press Start 2P", "Courier New", monospace';
+    ctx.shadowBlur = 15;
+    ctx.font = '72px "Press Start 2P", "Courier New", monospace';
     ctx.textAlign = 'right';
-    ctx.fillText(state.p1Score.toString(), width / 2 - 40, 65);
+    ctx.fillText(state.p1Score.toString(), width / 2 - 80, 100);
     ctx.textAlign = 'left';
-    ctx.fillText(state.p2Score.toString(), width / 2 + 40, 65);
+    ctx.fillText(state.p2Score.toString(), width / 2 + 80, 100);
     ctx.shadowBlur = 0;
 
     // Draw Player Names
-    ctx.font = '10px "Press Start 2P", "Courier New", monospace';
+    ctx.font = '16px "Press Start 2P", "Courier New", monospace';
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#ff5533'; // P1 Red Name
-    ctx.fillText(p1Name.toUpperCase(), 30, height - 15);
+    ctx.fillStyle = '#ff2400'; // P1 Red Name
+    ctx.fillText(p1Name.toUpperCase(), 50, height - 30);
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#3399ff'; // P2 Blue Name
-    ctx.fillText(p2Name.toUpperCase(), width - 30, height - 15);
+    ctx.fillStyle = '#007fff'; // P2 Blue Name
+    ctx.fillText(p2Name.toUpperCase(), width - 50, height - 30);
 
     // Ready / Freeze message overlay - Glowing Gold
     if (isPlaying && state.pointCooldown > 0 && !state.isFinished) {
-      ctx.font = '18px "Press Start 2P", "Courier New", monospace';
+      ctx.font = '28px "Press Start 2P", "Courier New", monospace';
       ctx.fillStyle = '#ffd700';
       ctx.shadowColor = '#ffd700';
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 15;
       ctx.textAlign = 'center';
       
       const secondsLeft = Math.ceil(state.pointCooldown / 30);
       if (secondsLeft > 1) {
-        ctx.fillText(`GET READY...`, width / 2, height / 2 + 100);
+        ctx.fillText(`GET READY...`, width / 2, height / 2 + 150);
       } else {
-        ctx.fillText(`SERVE!`, width / 2, height / 2 + 100);
+        ctx.fillText(`SERVE!`, width / 2, height / 2 + 150);
       }
       ctx.shadowBlur = 0;
     }
 
     // Pause overlay - Blinking Red/Yellow
     if (isPlaying && isPaused && !state.isFinished) {
-      ctx.font = '24px "Press Start 2P", "Courier New", monospace';
+      ctx.font = '48px "Press Start 2P", "Courier New", monospace';
       ctx.fillStyle = '#ff2400';
       ctx.shadowColor = '#ff2400';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 20;
       ctx.textAlign = 'center';
-      ctx.fillText(`PAUSED`, width / 2, height / 2 - 10);
+      ctx.fillText(`PAUSED`, width / 2, height / 2 - 20);
       ctx.shadowBlur = 0;
       
-      ctx.font = '12px "Press Start 2P", "Courier New", monospace';
+      ctx.font = '20px "Press Start 2P", "Courier New", monospace';
       ctx.fillStyle = '#ffd700';
-      ctx.fillText(`PRESS RESUME TO CONTINUE`, width / 2, height / 2 + 30);
+      ctx.fillText(`PRESS RESUME TO CONTINUE`, width / 2, height / 2 + 50);
     }
 
     requestRef.current = requestAnimationFrame(gameLoop);
