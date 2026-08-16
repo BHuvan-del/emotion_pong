@@ -47,7 +47,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     ballSpeedY: 2.0,
     serveDirection: 1, // 1 for right, -1 for left
     pointCooldown: 0,  // Cooldown frames after scoring
-    isFinished: false
+    isFinished: false,
+    lastRallySpeed: 10.5 // Tracks the speed at end of last rally for serve continuity
   });
 
   // Track calibration values and positions
@@ -70,14 +71,21 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       state.serveDirection = Math.random() > 0.5 ? 1 : -1;
     }
     
-    // Calculate speed progression: Base speed escalates with each point scored (starts at 10.5, grows by 1.80 per score)
-    const totalScore = state.p1Score + state.p2Score;
-    const baseSpeed = 10.5 + totalScore * 1.80;
+    let serveSpeed: number;
+    if (firstServe) {
+      // First serve: use score-based base speed
+      const totalScore = state.p1Score + state.p2Score;
+      serveSpeed = 10.5 + totalScore * 1.80;
+    } else {
+      // Subsequent serves: carry forward the speed from the last rally
+      // so momentum is preserved and the game stays at the pace it was at
+      serveSpeed = state.lastRallySpeed;
+    }
     
     // Set starting speed
-    state.ballSpeedX = state.serveDirection * baseSpeed;
+    state.ballSpeedX = state.serveDirection * serveSpeed;
     // Random vertical velocity (scales with speed to keep angles proportional)
-    state.ballSpeedY = (Math.random() * 2 - 1) * (baseSpeed * 0.6);
+    state.ballSpeedY = (Math.random() * 2 - 1) * (serveSpeed * 0.6);
     state.pointCooldown = 90; // 1.5s freeze
   };
 
@@ -104,12 +112,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const targetP2Y = centerY - p2Val * halfRange;
 
       // Smooth interpolation (lerp) for retro responsive sliding
-      state.p1Y += (targetP1Y - state.p1Y) * 0.15;
+      state.p1Y += (targetP1Y - state.p1Y) * 0.12;
 
       if (isSinglePlayer) {
         // AI mode: Paddle 2 tracks the ball's Y position with lag
         const aiTargetY = state.ballY - paddleHeight / 2;
-        state.p2Y += (aiTargetY - state.p2Y) * 0.055;
+        state.p2Y += (aiTargetY - state.p2Y) * 0.14;
       } else {
         state.p2Y += (targetP2Y - state.p2Y) * 0.15;
       }
@@ -122,62 +130,65 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (state.pointCooldown > 0) {
         state.pointCooldown--;
       } else {
-        // Move ball
-        state.ballX += state.ballSpeedX;
-        state.ballY += state.ballSpeedY;
+        // CCD (Continuous Collision Detection) — sub-step the ball movement
+        // to prevent tunneling through paddles at high speeds.
+        // Number of steps scales with speed so fast balls are always caught.
+        const steps = Math.max(1, Math.ceil(Math.abs(state.ballSpeedX) / paddleWidth));
+        const stepX = state.ballSpeedX / steps;
+        const stepY = state.ballSpeedY / steps;
 
-        // Wall collisions (Top / Bottom)
-        if (state.ballY <= 0) {
-          state.ballY = 0;
-          state.ballSpeedY = -state.ballSpeedY;
-          playWallHit();
-        } else if (state.ballY >= height - ballSize) {
-          state.ballY = height - ballSize;
-          state.ballSpeedY = -state.ballSpeedY;
-          playWallHit();
-        }
+        for (let s = 0; s < steps; s++) {
+          state.ballX += stepX;
+          state.ballY += stepY;
 
-        // Paddle 1 (Left Player) Collision
-        const p1X = 20; // X position of Left Paddle
-        if (state.ballSpeedX < 0 && 
-            state.ballX <= p1X + paddleWidth && 
-            state.ballX >= p1X &&
-            state.ballY + ballSize >= state.p1Y && 
-            state.ballY <= state.p1Y + paddleHeight) {
-          
-          state.ballX = p1X + paddleWidth;
-          // Calculate relative hit position to apply spin/angle variation
-          const relativeIntersectY = (state.p1Y + (paddleHeight / 2)) - (state.ballY + (ballSize / 2));
-          const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2);
-          const bounceAngle = normalizedIntersectY * (Math.PI / 3.5); // max 51 degree bounce
+          // Wall collisions (Top / Bottom)
+          if (state.ballY <= 0) {
+            state.ballY = 0;
+            state.ballSpeedY = Math.abs(state.ballSpeedY);
+            playWallHit();
+          } else if (state.ballY >= height - ballSize) {
+            state.ballY = height - ballSize;
+            state.ballSpeedY = -Math.abs(state.ballSpeedY);
+            playWallHit();
+          }
 
-          // Increase speed on hit for excitement (8% speedup up to 36.0 max speed)
-          const speed = Math.min(36.0, Math.abs(state.ballSpeedX) * 1.08);
-          state.ballSpeedX = speed;
-          state.ballSpeedY = -speed * Math.sin(bounceAngle);
-          
-          playPaddleHit();
-        }
+          // Paddle 1 (Left Player) Collision
+          const p1X = 20;
+          if (state.ballSpeedX < 0 &&
+              state.ballX <= p1X + paddleWidth &&
+              state.ballX >= p1X - Math.abs(stepX) && // swept zone guard
+              state.ballY + ballSize >= state.p1Y &&
+              state.ballY <= state.p1Y + paddleHeight) {
 
-        // Paddle 2 (Right Player) Collision
-        const p2X = width - 20 - paddleWidth; // X position of Right Paddle
-        if (state.ballSpeedX > 0 && 
-            state.ballX + ballSize >= p2X && 
-            state.ballX + ballSize <= p2X + paddleWidth &&
-            state.ballY + ballSize >= state.p2Y && 
-            state.ballY <= state.p2Y + paddleHeight) {
-          
-          state.ballX = p2X - ballSize;
-          // Calculate relative hit position to apply spin/angle variation
-          const relativeIntersectY = (state.p2Y + (paddleHeight / 2)) - (state.ballY + (ballSize / 2));
-          const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2);
-          const bounceAngle = normalizedIntersectY * (Math.PI / 3.5); // max 51 degree bounce
+            state.ballX = p1X + paddleWidth; // push ball out of paddle
+            const relativeIntersectY = (state.p1Y + (paddleHeight / 2)) - (state.ballY + (ballSize / 2));
+            const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2);
+            const bounceAngle = normalizedIntersectY * (Math.PI / 3.5);
+            const speed = Math.min(40.0, Math.abs(state.ballSpeedX) * 1.10);
+            state.ballSpeedX = speed;
+            state.ballSpeedY = -speed * Math.sin(bounceAngle);
+            playPaddleHit();
+            break; // collision handled for this frame
+          }
 
-          const speed = Math.min(36.0, Math.abs(state.ballSpeedX) * 1.08);
-          state.ballSpeedX = -speed;
-          state.ballSpeedY = -speed * Math.sin(bounceAngle);
-          
-          playPaddleHit();
+          // Paddle 2 (Right Player) Collision
+          const p2X = width - 20 - paddleWidth;
+          if (state.ballSpeedX > 0 &&
+              state.ballX + ballSize >= p2X &&
+              state.ballX + ballSize <= p2X + paddleWidth + Math.abs(stepX) && // swept zone guard
+              state.ballY + ballSize >= state.p2Y &&
+              state.ballY <= state.p2Y + paddleHeight) {
+
+            state.ballX = p2X - ballSize; // push ball out of paddle
+            const relativeIntersectY = (state.p2Y + (paddleHeight / 2)) - (state.ballY + (ballSize / 2));
+            const normalizedIntersectY = relativeIntersectY / (paddleHeight / 2);
+            const bounceAngle = normalizedIntersectY * (Math.PI / 3.5);
+            const speed = Math.min(40.0, Math.abs(state.ballSpeedX) * 1.12);
+            state.ballSpeedX = -speed;
+            state.ballSpeedY = -speed * Math.sin(bounceAngle);
+            playPaddleHit();
+            break; // collision handled for this frame
+          }
         }
 
         // Score Detection
@@ -193,6 +204,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             sendSerialCommand('W'); // Trigger win hardware flash
             onWin('PLAYER 2', state.p1Score, state.p2Score);
           } else {
+            state.lastRallySpeed = Math.abs(state.ballSpeedX); // Preserve current speed
             resetBall(false);
           }
         } else if (state.ballX > width) {
@@ -207,6 +219,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             sendSerialCommand('W'); // Trigger win hardware flash
             onWin('PLAYER 1', state.p1Score, state.p2Score);
           } else {
+            state.lastRallySpeed = Math.abs(state.ballSpeedX); // Preserve current speed
             resetBall(false);
           }
         }

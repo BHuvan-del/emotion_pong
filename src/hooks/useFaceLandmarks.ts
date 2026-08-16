@@ -176,18 +176,28 @@ export const useFaceLandmarks = () => {
           let calibratedValue = 0;
           const raw = face.rawSmileMetric;
           
+          const deadZone = 0.12; // 12% dead-zone around neutral to filter out minor twitches
+          
           if (raw >= cal.neutral) {
             // Smile side (maps neutral..smile to 0..1)
             const range = cal.smile - cal.neutral;
             const rawNormalized = range > 0 ? (raw - cal.neutral) / range : 0;
-            // Apply 1.3x sensitivity boost for responsive gameplay with less facial fatigue
-            calibratedValue = Math.min(1.0, Math.max(0.0, rawNormalized * 1.3));
+            if (rawNormalized > deadZone) {
+              const scaled = (rawNormalized - deadZone) / (1 - deadZone);
+              calibratedValue = Math.min(1.0, scaled * 1.15); // Smoothly ramp up with stable 1.15x multiplier
+            } else {
+              calibratedValue = 0.0;
+            }
           } else {
             // Frown side (maps frown..neutral to -1..0)
             const range = cal.neutral - cal.frown;
-            const rawNormalized = range > 0 ? (raw - cal.neutral) / range : 0;
-            // Apply 1.3x sensitivity boost
-            calibratedValue = Math.min(0.0, Math.max(-1.0, rawNormalized * 1.3));
+            const rawNormalized = range > 0 ? (raw - cal.neutral) / range : 0; // Negative value
+            if (rawNormalized < -deadZone) {
+              const scaled = (rawNormalized + deadZone) / (1 - deadZone);
+              calibratedValue = Math.max(-1.0, scaled * 1.15); // Smoothly ramp down
+            } else {
+              calibratedValue = 0.0;
+            }
           }
 
           return {

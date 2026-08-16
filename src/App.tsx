@@ -12,8 +12,6 @@ import {
 } from 'lucide-react';
 import { useFaceLandmarks } from './hooks/useFaceLandmarks';
 import { GameCanvas } from './components/GameCanvas';
-import { TelemetryHud } from './components/TelemetryHud';
-import { ModelAccuracyPanel } from './components/ModelAccuracyPanel';
 import { Leaderboard, addLeaderboardEntry } from './components/Leaderboard';
 import { 
   startBackgroundMusic, 
@@ -233,13 +231,22 @@ export default function App() {
       ctx.stroke();
 
       // Draw active player tags above their heads
+      // The canvas element is CSS-mirrored (scale-x-[-1]), so we must
+      // flip the context horizontally before drawing text, then restore.
       const forehead = landmarks[10]; // Center forehead point
       const fx = forehead.x * canvas.width;
       const fy = forehead.y * canvas.height - 15;
+      
+      ctx.save();
+      // Flip context horizontally around the label's X position to counter the CSS mirror
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      const mirroredFx = canvas.width - fx; // X position after mirroring
       ctx.fillStyle = color;
-      ctx.font = '8px "Press Start 2P", monospace';
+      ctx.font = '14px "Press Start 2P", monospace';
       ctx.textAlign = 'center';
-      ctx.fillText(index === 0 ? p1Name.toUpperCase() : p2Name.toUpperCase(), fx, fy);
+      ctx.fillText(index === 0 ? p1Name.toUpperCase() : p2Name.toUpperCase(), mirroredFx, fy);
+      ctx.restore();
     });
   }, [detectedFaces, p1Name, p2Name]);
 
@@ -436,14 +443,12 @@ export default function App() {
     setMuted(isMuted);
   };
 
-  // Extract calibrated and raw smile scores to send to Telemetry HUD
+  // Extract calibrated values to send to GameCanvas
   const p1Calibrated = detectedFaces[0]?.calibratedValue || 0;
   const p2Calibrated = detectedFaces[1]?.calibratedValue || 0;
-  const p1Raw = detectedFaces[0]?.rawSmileMetric || 0;
-  const p2Raw = detectedFaces[1]?.rawSmileMetric || 0;
 
   return (
-    <div className="w-screen h-screen flex flex-col items-center justify-between p-3 select-none box-border relative overflow-hidden bg-black text-yellow-500 crt-overlay uppercase">
+    <div className="w-screen min-h-screen flex flex-col items-center justify-between p-4 md:p-6 select-none box-border relative overflow-y-auto bg-black text-yellow-500 crt-overlay uppercase scrollbar-thin scrollbar-thin-yellow">
       {/* Hidden video element that stays mounted forever */}
       <video ref={videoRef} className="hidden" playsInline muted />
 
@@ -451,24 +456,22 @@ export default function App() {
       <div className="absolute inset-0 arcade-grid pointer-events-none z-0"></div>
 
       {/* HEADER SECTION */}
-      <header className="w-full max-w-7xl flex justify-between items-center z-10 border-b-2 border-yellow-500 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="font-arcade text-xs tracking-wider glow-text-yellow animate-pulse">
-            EMOTION PONG // IETE
-          </div>
+      <header className="w-full max-w-[95vw] flex justify-between items-center z-10 border-b border-yellow-500/60 pb-1">
+        <div className="font-arcade text-[10px] tracking-wider glow-text-yellow animate-pulse">
+          EMOTION PONG // IETE
         </div>
         
         {/* AUDIO MUTE TOGGLE */}
         <button 
           onClick={toggleMuted}
-          className="p-1 border-2 border-yellow-500/50 hover:border-yellow-500 hover:bg-yellow-950/30 cursor-pointer active:scale-95 text-yellow-500 select-none transition-all flex items-center justify-center"
+          className="p-0.5 border border-yellow-500/50 hover:border-yellow-500 hover:bg-yellow-950/30 cursor-pointer active:scale-95 text-yellow-500 select-none transition-all flex items-center justify-center"
         >
-          {muted ? <VolumeX className="w-4 h-4 text-red-500 animate-pulse" /> : <Volume2 className="w-4 h-4" />}
+          {muted ? <VolumeX className="w-3.5 h-3.5 text-red-500 animate-pulse" /> : <Volume2 className="w-3.5 h-3.5" />}
         </button>
       </header>
 
       {/* SCREEN ROUTING */}
-      <main className="flex-1 w-full max-w-7xl flex flex-col justify-center items-center py-4 z-10 overflow-hidden">
+      <main className="flex-1 w-full max-w-[95vw] flex flex-col justify-center items-center py-4 z-10 overflow-visible">
         
         {/* LOADING INDICATOR */}
         {isLoading && screen !== 'hook' && (
@@ -500,71 +503,76 @@ export default function App() {
           <>
             {/* 0. LOGIN SCREEN */}
             {screen === 'login' && (
-              <div className="flex flex-col items-center justify-between text-center gap-6 max-w-lg">
+              <div className="flex flex-col items-center justify-center text-center gap-4 w-full max-w-2xl">
                 <div className="flex flex-col items-center gap-2">
-                  <h1 className="font-arcade text-3xl sm:text-4xl tracking-tighter animate-[pulse_1.5s_infinite] select-none">
+                  <img 
+                    src="/logo.png" 
+                    alt="IETE Logo" 
+                    className="w-24 h-24 object-contain border-2 border-yellow-500 bg-white p-1 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.45)] mb-2" 
+                  />
+                  <h1 className="font-arcade text-4xl sm:text-5xl tracking-tighter animate-[pulse_1.5s_infinite] select-none">
                     <span className="text-[#ff2400] glow-text-red">EMOTION</span> <span className="text-[#007fff] glow-text-blue">PONG</span>
                   </h1>
-                  <p className="text-xs font-arcade text-yellow-600 tracking-wide mt-1">
+                  <p className="text-sm font-arcade text-yellow-400 tracking-wide mt-1">
                     STALL LEAD CAPTURE & REGISTRATION
                   </p>
                 </div>
 
-                <form onSubmit={handleRegisterAndStart} className="border-4 border-yellow-500 p-8 bg-black/60 relative w-full flex flex-col gap-5 shadow-[0_0_20px_rgba(234,179,8,0.2)] text-left select-none max-w-md">
-                  <div className="absolute top-2 left-2 text-[8px] text-yellow-600 font-mono">SQL_DATABASE_CONNECT // PORT 3001</div>
+                <form onSubmit={handleRegisterAndStart} className="border-4 border-yellow-500 py-6 px-8 bg-black/60 relative w-full flex flex-col gap-4 shadow-[0_0_20px_rgba(234,179,8,0.25)] text-left select-none max-w-2xl">
+                  <div className="absolute top-2 left-2 text-[10px] text-yellow-400 font-mono font-semibold">SQL_DATABASE_CONNECT // PORT 3001</div>
                   
                   {leadError && (
-                    <div className="text-[10px] font-mono text-red-500 border border-red-500/50 p-2 bg-red-950/20 text-center uppercase">
+                    <div className="text-xs font-mono text-red-500 border-2 border-red-500/50 p-2 bg-red-950/20 text-center uppercase">
                       {leadError}
                     </div>
                   )}
 
                   {/* Player 1 details */}
-                  <div className="flex flex-col border border-red-500/50 bg-black/40 p-3">
-                    <label className="text-[9px] font-arcade text-red-400 mb-1">PLAYER 1 NAME *</label>
+                  <div className="flex flex-col border-2 border-red-500/50 bg-black/40 p-3.5 gap-2">
+                    <label className="text-[11px] font-arcade text-red-400">PLAYER 1 NAME *</label>
                     <input 
                       type="text" 
                       placeholder="ENTER NAME"
                       value={p1Name === 'Player 1' ? '' : p1Name} 
                       onChange={(e) => setP1Name(e.target.value.substring(0, 15))} 
-                      className="bg-black border border-red-500/30 text-red-400 p-2 text-xs font-mono uppercase focus:border-red-500 focus:outline-none"
+                      className="bg-black border border-red-500/30 text-red-400 p-3 text-sm font-mono uppercase focus:border-red-500 focus:outline-none"
                       required
                     />
-                    <label className="text-[9px] font-arcade text-red-400 mt-2 mb-1">PLAYER 1 CONTACT NUMBER *</label>
+                    <label className="text-[11px] font-arcade text-red-400 mt-1">PLAYER 1 CONTACT NUMBER *</label>
                     <input 
                       type="tel" 
                       placeholder="ENTER CONTACT NUMBER"
                       value={p1Contact} 
                       onChange={(e) => setP1Contact(e.target.value.substring(0, 15))} 
-                      className="bg-black border border-red-500/30 text-red-400 p-2 text-xs font-mono focus:border-red-500 focus:outline-none"
+                      className="bg-black border border-red-500/30 text-red-400 p-3 text-sm font-mono focus:border-red-500 focus:outline-none"
                       required
                     />
                   </div>
 
                   {/* Player 2 details */}
-                  <div className="flex flex-col border border-blue-500/50 bg-black/40 p-3">
-                    <label className="text-[9px] font-arcade text-blue-400 mb-1">PLAYER 2 NAME (OPTIONAL)</label>
+                  <div className="flex flex-col border-2 border-blue-500/50 bg-black/40 p-3.5 gap-2">
+                    <label className="text-[11px] font-arcade text-blue-400">PLAYER 2 NAME (OPTIONAL)</label>
                     <input 
                       type="text" 
                       placeholder="ENTER P2 NAME"
                       value={p2Name === 'Player 2' ? '' : p2Name} 
                       onChange={(e) => setP2Name(e.target.value.substring(0, 15))} 
-                      className="bg-black border border-blue-500/30 text-blue-400 p-2 text-xs font-mono uppercase focus:border-blue-500 focus:outline-none"
+                      className="bg-black border border-blue-500/30 text-blue-400 p-3 text-sm font-mono uppercase focus:border-blue-500 focus:outline-none"
                     />
-                    <label className="text-[9px] font-arcade text-blue-400 mt-2 mb-1">PLAYER 2 CONTACT NUMBER (OPTIONAL)</label>
+                    <label className="text-[11px] font-arcade text-blue-400 mt-1">PLAYER 2 CONTACT NUMBER (OPTIONAL)</label>
                     <input 
                       type="tel" 
                       placeholder="ENTER P2 CONTACT NUMBER"
                       value={p2Contact} 
                       onChange={(e) => setP2Contact(e.target.value.substring(0, 15))} 
-                      className="bg-black border border-blue-500/30 text-blue-400 p-2 text-xs font-mono focus:border-blue-500 focus:outline-none"
+                      className="bg-black border border-blue-500/30 text-blue-400 p-3 text-sm font-mono focus:border-blue-500 focus:outline-none"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={isSubmittingLeads}
-                    className="w-full py-3 border-2 border-yellow-500 bg-yellow-950/30 font-arcade text-xs text-yellow-500 cursor-pointer hover:bg-yellow-500 hover:text-black transition-all flex justify-center items-center gap-2 select-none active:scale-95 disabled:opacity-50"
+                    className="w-full py-3.5 border-2 border-yellow-500 bg-yellow-950/30 font-arcade text-sm text-yellow-500 cursor-pointer hover:bg-yellow-500 hover:text-black transition-all flex justify-center items-center gap-2 select-none active:scale-95 disabled:opacity-50"
                   >
                     <Sparkles className="w-3.5 h-3.5 fill-current" />
                     {isSubmittingLeads ? 'SAVING DATA...' : 'ENTER GAME CABINET'}
@@ -575,8 +583,13 @@ export default function App() {
 
             {/* 1. HOOK SCREEN */}
             {screen === 'hook' && (
-              <div className="flex flex-col items-center justify-between text-center gap-6 max-w-lg">
-                <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center justify-between text-center gap-6 w-full max-w-3xl">
+                <div className="flex flex-col items-center gap-3">
+                  <img 
+                    src="/logo.png" 
+                    alt="IETE Logo" 
+                    className="w-24 h-24 object-contain border-2 border-yellow-500 bg-white p-1 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.45)] mb-2" 
+                  />
                   <h1 className="font-arcade text-3xl sm:text-4xl tracking-tighter animate-[pulse_1.5s_infinite]">
                     <span className="text-[#ff2400] glow-text-red">EMOTION</span> <span className="text-[#007fff] glow-text-blue">PONG</span>
                   </h1>
@@ -614,40 +627,45 @@ export default function App() {
             {/* 2. ENROLLMENT / CALIBRATION SCREEN */}
             {screen === 'calibrate' && (
               <div className="w-full flex flex-col items-center gap-4">
-                <div className="text-center">
+                <div className="text-center flex flex-col items-center gap-3">
+                  <img 
+                    src="/logo.png" 
+                    alt="IETE Logo" 
+                    className="w-16 h-16 object-contain border-2 border-yellow-500 bg-white p-0.5 rounded-full shadow-[0_0_12px_rgba(234,179,8,0.35)]" 
+                  />
                   <h2 className="font-arcade text-base glow-text-yellow mb-2">PLAYER REGISTRATION & CALIBRATION</h2>
                   <p className="text-xs text-yellow-400 font-mono font-semibold">SIT SIDE-BY-SIDE IN FRONT OF THE CAMERA. ADJUST LIGHTING.</p>
                 </div>
 
                 {/* Input Fields */}
-                <div className="grid grid-cols-2 gap-4 w-full max-w-md">
-                  <div className="flex flex-col border border-yellow-500/50 bg-black/40 p-2.5">
-                    <label className="text-[10px] font-arcade text-red-400 mb-1">P1 NAME (RED PADDLE)</label>
+                <div className="grid grid-cols-2 gap-6 w-full max-w-2xl">
+                  <div className="flex flex-col border-2 border-yellow-500/50 bg-black/40 p-3.5 gap-1.5">
+                    <label className="text-xs font-arcade text-red-400">P1 NAME (RED PADDLE)</label>
                     <input 
                       type="text" 
                       value={p1Name} 
                       onChange={(e) => setP1Name(e.target.value.substring(0, 15))} 
-                      className="bg-black border border-red-500/30 text-red-400 p-2 text-xs font-mono uppercase focus:border-red-500 focus:outline-none"
+                      className="bg-black border border-red-500/30 text-red-400 p-3 text-sm font-mono uppercase focus:border-red-500 focus:outline-none"
                     />
                   </div>
-                  <div className="flex flex-col border border-yellow-500/50 bg-black/40 p-2.5">
-                    <label className="text-[10px] font-arcade text-blue-400 mb-1">P2 NAME (BLUE PADDLE)</label>
+                  <div className="flex flex-col border-2 border-yellow-500/50 bg-black/40 p-3.5 gap-1.5">
+                    <label className="text-xs font-arcade text-blue-400">P2 NAME (BLUE PADDLE)</label>
                     <input 
                       type="text" 
                       value={p2Name} 
                       onChange={(e) => setP2Name(e.target.value.substring(0, 15))} 
-                      className="bg-black border border-blue-500/30 text-blue-400 p-2 text-xs font-mono uppercase focus:border-blue-500 focus:outline-none"
+                      className="bg-black border border-blue-500/30 text-blue-400 p-3 text-sm font-mono uppercase focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
                 {/* Webcam Box & Overlay */}
-                <div className="relative w-full max-w-[480px] aspect-[4/3] border-4 border-yellow-500 bg-black shadow-[0_0_15px_rgba(234,179,8,0.15)]">
+                <div className="relative w-full max-w-[640px] max-h-[48vh] aspect-[4/3] border-4 border-yellow-500 bg-black shadow-[0_0_15px_rgba(234,179,8,0.2)]">
                   {/* Mesh Canvas overlay mirrored (displays both the video feed and the wireframe mesh) */}
                   <canvas 
                     ref={overlayCanvasRef} 
-                    width={480}
-                    height={360}
+                    width={640}
+                    height={480}
                     className="w-full h-full object-cover scale-x-[-1]" 
                   />
 
@@ -656,9 +674,9 @@ export default function App() {
                     <div className="absolute inset-0 bg-black/85 flex flex-col justify-center items-center text-center p-6 border-2 border-yellow-500">
                       {calCountdown > 0 ? (
                         <>
-                          <div className="font-arcade text-sm text-yellow-400 mb-3">GET READY TO CALIBRATE</div>
-                          <div className="font-arcade text-4xl text-yellow-300 animate-ping">{calCountdown}</div>
-                          <div className="text-sm font-mono text-yellow-300 font-bold mt-6">
+                          <div className="font-arcade text-2xl text-yellow-400 mb-3">GET READY TO CALIBRATE</div>
+                          <div className="font-arcade text-6xl text-yellow-300 animate-ping">{calCountdown}</div>
+                          <div className="text-xl font-mono text-yellow-300 font-bold mt-6">
                             {calStep === 'neutral' && 'LOOK NEUTRAL AND RELAXED'}
                             {calStep === 'smile' && 'SMILE AS WIDE AS YOU CAN'}
                             {calStep === 'frown' && 'FROWN / PURSE LIPS / FURROW EYEBROWS'}
@@ -666,7 +684,7 @@ export default function App() {
                         </>
                       ) : (
                         <>
-                          <div className="font-arcade text-xs text-yellow-300 mb-2">RECORDING FACIAL PATTERN...</div>
+                          <div className="font-arcade text-base text-yellow-300 mb-2">RECORDING FACIAL PATTERN...</div>
                           <div className="font-arcade text-[10px] text-yellow-500 mb-4">{calProgress}%</div>
                           <div className="w-32 bg-yellow-950 h-2 border border-yellow-500 overflow-hidden relative">
                             <div className="bg-yellow-500 h-full" style={{ width: `${calProgress}%` }}></div>
@@ -773,40 +791,38 @@ export default function App() {
                     onWin={handleWin}
                     onScoreUpdate={handleScoreUpdate}
                   />
+                </div>
 
-                  {/* Visualizer showing webcam PiP with overlays */}
-                  <div className="flex justify-between items-center border border-yellow-500/30 bg-black/60 p-2 mt-1">
-                    <div className="flex items-center gap-2">
-                      <Camera className="w-4.5 h-4.5 text-yellow-500/70" />
-                      <span className="text-xs font-mono text-yellow-500/80">CAMERA STREAM & WIREFRAME</span>
+                {/* RIGHT COLUMN: LARGE WEBCAM STREAM & WIREFRAME (REPLACES ALL STATS) */}
+                <div className="flex-[1.2] min-w-[320px] lg:max-w-[420px] flex flex-col justify-center">
+                  <div className="telemetry-panel flex flex-col bg-black border-4 border-yellow-500 font-mono text-xs text-yellow-500 p-4 select-none box-border uppercase leading-tight relative shadow-[0_0_15px_rgba(234,179,8,0.25)]">
+                    {/* Scanline CRT overlay effect */}
+                    <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(0,0,0,0)_0%,rgba(0,0,0,0.4)_100%)] opacity-30 z-10"></div>
+                    
+                    {/* Panel Title */}
+                    <div className="flex justify-between items-center border-b-2 border-yellow-500 pb-2 mb-3">
+                      <span className="text-sm font-bold flex items-center gap-1.5">
+                        <Camera className="w-4 h-4 text-yellow-400 animate-pulse" />
+                        STALL_FACIAL_TRACKING.RAW
+                      </span>
+                      <span className="text-xs text-yellow-500/80 animate-pulse">● FEED_LIVE</span>
                     </div>
-                    {/* Micro camera canvas feed */}
-                    <div className="relative w-36 aspect-[4/3] border border-yellow-500 bg-black overflow-hidden">
+
+                    {/* Large camera canvas feed */}
+                    <div className="relative w-full aspect-[4/3] border-4 border-yellow-500 bg-black overflow-hidden shadow-[0_0_10px_rgba(234,179,8,0.15)]">
                       <canvas 
                         ref={overlayCanvasRef} 
-                        width={144}
-                        height={108}
+                        width={640}
+                        height={480}
                         className="w-full h-full object-cover scale-x-[-1]" 
                       />
                     </div>
+                    
+                    <div className="mt-3 border-2 border-yellow-500/50 p-2.5 bg-yellow-950/10 text-xs text-center leading-relaxed text-yellow-400 font-mono font-semibold">
+                      REAL-TIME NEURAL MESH ACTIVE<br/>
+                      INFERENCE: {fps} FPS | LATENCY: {latency} MS
+                    </div>
                   </div>
-                </div>
-
-                {/* RIGHT COLUMN: TELEMETRY HUD & MODEL ACCURACY PANEL */}
-                <div className="flex-[1] min-w-[280px] lg:max-w-[360px] flex flex-col">
-                  <TelemetryHud 
-                    fps={fps}
-                    latency={latency}
-                    face1Val={p1Calibrated}
-                    face2Val={p2Calibrated}
-                    face1Raw={p1Raw}
-                    face2Raw={p2Raw}
-                    facesDetected={detectedFaces.length}
-                  />
-                  <ModelAccuracyPanel 
-                    detectedFaces={detectedFaces}
-                    latency={latency}
-                  />
                 </div>
               </div>
             )}
@@ -883,7 +899,7 @@ export default function App() {
       </main>
 
       {/* FOOTER SECTION */}
-      <footer className="w-full max-w-7xl border-t border-yellow-500/30 pt-2 flex justify-between items-center text-[10px] font-mono text-yellow-600/80 z-10 uppercase">
+      <footer className="w-full max-w-[95vw] border-t border-yellow-500/30 pt-2 flex justify-between items-center text-[10px] font-mono text-yellow-600/80 z-10 uppercase">
         <span>STALL_HARDWARE: DISCOVERABLE</span>
         <span>© 2026 INSTITUTION OF ELECTRONICS AND TELECOMMUNICATION ENGINEERS</span>
         <span>SYSTEM_STATUS: OK</span>

@@ -9,7 +9,8 @@
 
 body {
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: radial-gradient(circle at center, #131d47 0%, #030408 100%);
   color: #f8fafc;
 }
@@ -47,7 +48,7 @@ body {
   background-image: 
     linear-gradient(rgba(59, 130, 246, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(59, 130, 246, 0.08) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background-size: 80px 80px;
   background-position: center;
 }
 
