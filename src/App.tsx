@@ -66,7 +66,9 @@ export default function App() {
     detectedFaces,
     startTracking,
     stopTracking,
-    setCalibration
+    setCalibration,
+    lockFaces,
+    unlockFaces
   } = useFaceLandmarks();
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -155,100 +157,80 @@ export default function App() {
   };
 
   // Render Face Meshes on overlay canvas in real time
+  // Keep a ref to latest face data so the rAF draw loop reads live data
+  // without depending on React state timing or triggering re-renders
+  const detectedFacesDrawRef = useRef<typeof detectedFaces>([]);
+  useEffect(() => { detectedFacesDrawRef.current = detectedFaces; }, [detectedFaces]);
+  const p1NameRef = useRef(p1Name);
+  const p2NameRef = useRef(p2Name);
+  useEffect(() => { p1NameRef.current = p1Name; }, [p1Name]);
+  useEffect(() => { p2NameRef.current = p2Name; }, [p2Name]);
+
+  // Self-contained rAF loop — decoupled from React, never blocks the game loop
   useEffect(() => {
-    const canvas = overlayCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    let rafId: number;
+    const drawOverlay = () => {
+      const canvas = overlayCanvasRef.current;
+      if (!canvas) { rafId = requestAnimationFrame(drawOverlay); return; }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { rafId = requestAnimationFrame(drawOverlay); return; }
 
-    // Draw current video frame to canvas (for mirroring and PiP display)
-    if (videoRef.current && videoRef.current.readyState >= 2) {
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    } else {
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+      // Draw video frame
+      if (videoRef.current && videoRef.current.readyState >= 2) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
-    if (detectedFaces.length === 0) return;
+      const faces = detectedFacesDrawRef.current;
+      faces.forEach((face, index) => {
+        const landmarks = face.landmarks;
+        const color = index === 0 ? '#ff2400' : '#007fff';
+        ctx.fillStyle = color;
+        // No shadowBlur on dots — was 936 Gaussian blur ops per frame (468 pts × 2 faces)
+        landmarks.forEach((pt) => {
+          ctx.beginPath();
+          ctx.arc(pt.x * canvas.width, pt.y * canvas.height, 1.0, 0, 2 * Math.PI);
+          ctx.fill();
+        });
+        ctx.strokeStyle = index === 0 ? 'rgba(255,36,0,0.45)' : 'rgba(0,127,255,0.45)';
+        ctx.lineWidth = 1;
+        const drawPath = (indices: number[]) => {
+          ctx.beginPath();
+          indices.forEach((idx, i) => {
+            const pt = landmarks[idx];
+            if (i === 0) ctx.moveTo(pt.x * canvas.width, pt.y * canvas.height);
+            else ctx.lineTo(pt.x * canvas.width, pt.y * canvas.height);
+          });
+          ctx.stroke();
+        };
+        drawPath([61, 37, 0, 267, 291, 314, 17, 84, 61]);
+        drawPath([70, 63, 105, 66, 107]);
+        drawPath([300, 293, 334, 296, 336]);
 
-    // Draw glowing meshes for detected faces
-    detectedFaces.forEach((face, index) => {
-      const landmarks = face.landmarks;
-      
-      // Color coding: Player 1 (Red), Player 2 (Blue)
-      const color = index === 0 ? '#ff2400' : '#007fff';
-      ctx.fillStyle = color;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 4;
-
-      // Draw all 468 points as small circles
-      landmarks.forEach((pt) => {
-        const px = pt.x * canvas.width;
-        const py = pt.y * canvas.height;
-        ctx.beginPath();
-        ctx.arc(px, py, 1.0, 0, 2 * Math.PI);
-        ctx.fill();
+        // Player name — counter-flip context to undo CSS mirror on text
+        const forehead = landmarks[10];
+        const fx = forehead.x * canvas.width;
+        const fy = forehead.y * canvas.height - 15;
+        ctx.save();
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.fillStyle = color;
+        ctx.font = '14px "Press Start 2P", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          index === 0 ? p1NameRef.current.toUpperCase() : p2NameRef.current.toUpperCase(),
+          canvas.width - fx, fy
+        );
+        ctx.restore();
       });
-      ctx.shadowBlur = 0;
 
-      // Draw wireframe outline for mouth
-      ctx.strokeStyle = index === 0 ? 'rgba(255, 36, 0, 0.45)' : 'rgba(0, 127, 255, 0.45)';
-      ctx.lineWidth = 1;
-      
-      // Mouth outer loop
-      const mouthOuter = [61, 37, 0, 267, 291, 314, 17, 84, 61];
-      ctx.beginPath();
-      mouthOuter.forEach((idx, i) => {
-        const pt = landmarks[idx];
-        const px = pt.x * canvas.width;
-        const py = pt.y * canvas.height;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      });
-      ctx.stroke();
-
-      // Eyebrows
-      const leftEyebrow = [70, 63, 105, 66, 107];
-      ctx.beginPath();
-      leftEyebrow.forEach((idx, i) => {
-        const pt = landmarks[idx];
-        const px = pt.x * canvas.width;
-        const py = pt.y * canvas.height;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      });
-      ctx.stroke();
-
-      const rightEyebrow = [300, 293, 334, 296, 336];
-      ctx.beginPath();
-      rightEyebrow.forEach((idx, i) => {
-        const pt = landmarks[idx];
-        const px = pt.x * canvas.width;
-        const py = pt.y * canvas.height;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      });
-      ctx.stroke();
-
-      // Draw active player tags above their heads
-      // The canvas element is CSS-mirrored (scale-x-[-1]), so we must
-      // flip the context horizontally before drawing text, then restore.
-      const forehead = landmarks[10]; // Center forehead point
-      const fx = forehead.x * canvas.width;
-      const fy = forehead.y * canvas.height - 15;
-      
-      ctx.save();
-      // Flip context horizontally around the label's X position to counter the CSS mirror
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-      const mirroredFx = canvas.width - fx; // X position after mirroring
-      ctx.fillStyle = color;
-      ctx.font = '14px "Press Start 2P", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(index === 0 ? p1Name.toUpperCase() : p2Name.toUpperCase(), mirroredFx, fy);
-      ctx.restore();
-    });
-  }, [detectedFaces, p1Name, p2Name]);
+      rafId = requestAnimationFrame(drawOverlay);
+    };
+    rafId = requestAnimationFrame(drawOverlay);
+    return () => cancelAnimationFrame(rafId);
+  }, []); // runs once — reads live data via refs
 
   // Automated Calibration Workflow
   const startCalibrationSequence = async () => {
@@ -331,6 +313,7 @@ export default function App() {
     setCalibration(1, { neutral: n2, smile: s2, frown: f2 });
     
     setCalStep('complete');
+    lockFaces(); // ARM crowd interference filter — reject bystander faces during gameplay
     playWin(); // win completion sound
   };
 
@@ -425,11 +408,13 @@ export default function App() {
   };
 
   const handlePlayAgain = () => {
+    unlockFaces(); // Release face lock for re-calibration
     setScreen('calibrate');
     setCalStep('idle');
   };
 
   const handleReturnMenu = () => {
+    unlockFaces(); // Release face lock
     stopTracking();
     stopBackgroundMusic();
     setIsPaused(false);
@@ -508,7 +493,7 @@ export default function App() {
                   <img 
                     src="/logo.png" 
                     alt="IETE Logo" 
-                    className="w-24 h-24 object-contain border-2 border-yellow-500 bg-white p-1 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.45)] mb-2" 
+                    className="relative z-[100] w-24 h-24 object-contain border-2 border-yellow-500 bg-white p-1 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.45)] mb-2" 
                   />
                   <h1 className="font-arcade text-4xl sm:text-5xl tracking-tighter animate-[pulse_1.5s_infinite] select-none">
                     <span className="text-[#ff2400] glow-text-red">EMOTION</span> <span className="text-[#007fff] glow-text-blue">PONG</span>
@@ -588,7 +573,7 @@ export default function App() {
                   <img 
                     src="/logo.png" 
                     alt="IETE Logo" 
-                    className="w-24 h-24 object-contain border-2 border-yellow-500 bg-white p-1 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.45)] mb-2" 
+                    className="relative z-[100] w-24 h-24 object-contain border-2 border-yellow-500 bg-white p-1 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.45)] mb-2" 
                   />
                   <h1 className="font-arcade text-3xl sm:text-4xl tracking-tighter animate-[pulse_1.5s_infinite]">
                     <span className="text-[#ff2400] glow-text-red">EMOTION</span> <span className="text-[#007fff] glow-text-blue">PONG</span>
@@ -631,7 +616,7 @@ export default function App() {
                   <img 
                     src="/logo.png" 
                     alt="IETE Logo" 
-                    className="w-16 h-16 object-contain border-2 border-yellow-500 bg-white p-0.5 rounded-full shadow-[0_0_12px_rgba(234,179,8,0.35)]" 
+                    className="relative z-[100] w-16 h-16 object-contain border-2 border-yellow-500 bg-white p-0.5 rounded-full shadow-[0_0_12px_rgba(234,179,8,0.35)]" 
                   />
                   <h2 className="font-arcade text-base glow-text-yellow mb-2">PLAYER REGISTRATION & CALIBRATION</h2>
                   <p className="text-xs text-yellow-400 font-mono font-semibold">SIT SIDE-BY-SIDE IN FRONT OF THE CAMERA. ADJUST LIGHTING.</p>

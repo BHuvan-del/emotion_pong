@@ -13,6 +13,18 @@ export interface CalibrationData {
   frown: number;
 }
 
+// Helper: compute face bounding box width (proxy for face size / distance to camera)
+function computeFaceSize(landmarks: { x: number; y: number }[]): number {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const pt of landmarks) {
+    if (pt.x < minX) minX = pt.x;
+    if (pt.x > maxX) maxX = pt.x;
+    if (pt.y < minY) minY = pt.y;
+    if (pt.y > maxY) maxY = pt.y;
+  }
+  return (maxX - minX) * (maxY - minY); // area in normalized coords
+}
+
 export const useFaceLandmarks = () => {
   const [landmarker, setLandmarker] = useState<FaceLandmarker | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +36,9 @@ export const useFaceLandmarks = () => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const requestRef = useRef<number | null>(null);
   const previousTimeRef = useRef<number>(0);
-  const frameCountRef = useRef<number>(0);
+
+  // FPS counter — counts only actual detection frames, not animation frames
+  const detectionCountRef = useRef<number>(0);
   const lastFpsUpdateRef = useRef<number>(0);
 
   // Calibration state for 2 players
@@ -32,6 +46,26 @@ export const useFaceLandmarks = () => {
     { neutral: 0.0, smile: 0.5, frown: -0.4 }, // P1 default
     { neutral: 0.0, smile: 0.5, frown: -0.4 }  // P2 default
   ]);
+
+  // Stable face assignment: stores last known avgX for each player slot
+  // to prevent P1/P2 swapping when faces are close (hysteresis)
+  const lastAssignmentRef = useRef<[number, number]>([-1, -1]);
+
+  // ── CROWD INTERFERENCE DEFENSE ──
+  // After calibration, we lock onto the face sizes of the two real players.
+  // During gameplay, we reject faces whose size differs by >50% from the
+  // calibrated size — these are bystanders standing behind the players
+  // (their faces appear smaller since they're farther from the camera).
+  const lockedFaceSizesRef = useRef<[number, number]>([-1, -1]); // [P1 size, P2 size]
+  const isLockedRef = useRef(false);
+
+  // Last known good face data — used as fallback when a real player's face
+  // is temporarily occluded by a bystander
+  const lastGoodFacesRef = useRef<FaceData[]>([]);
+
+  // Throttle face detection to ~20fps to free main thread for game loop
+  const lastDetectionTimeRef = useRef<number>(0);
+  const DETECTION_INTERVAL_MS = 50; // 20fps face detection
 
   // Load landmarker
   useEffect(() => {
@@ -89,6 +123,23 @@ export const useFaceLandmarks = () => {
     return calibrationRef.current[playerIndex];
   }, []);
 
+  // Call this after calibration completes to lock onto the current faces
+  const lockFaces = useCallback(() => {
+    // Will be populated on next detection frame
+    isLockedRef.current = true;
+    lockedFaceSizesRef.current = [-1, -1]; // will be set on next successful 2-face detection
+    console.log('Face lock ARMED — will lock on next 2-face detection');
+  }, []);
+
+  // Call this to unlock (e.g., when returning to calibration screen)
+  const unlockFaces = useCallback(() => {
+    isLockedRef.current = false;
+    lockedFaceSizesRef.current = [-1, -1];
+    lastAssignmentRef.current = [-1, -1];
+    lastGoodFacesRef.current = [];
+    console.log('Face lock RELEASED');
+  }, []);
+
   // Frame detection loop
   const detectFrame = useCallback((time: number) => {
     if (!landmarker || !videoRef.current || videoRef.current.paused || videoRef.current.ended) {
@@ -97,12 +148,19 @@ export const useFaceLandmarks = () => {
     }
 
     const video = videoRef.current;
-    
-    // FPS tracking
-    frameCountRef.current += 1;
+
+    // Throttle face detection to DETECTION_INTERVAL_MS to keep main thread free for game loop
+    if (time - lastDetectionTimeRef.current < DETECTION_INTERVAL_MS) {
+      requestRef.current = requestAnimationFrame(detectFrame);
+      return;
+    }
+    lastDetectionTimeRef.current = time;
+
+    // FPS counter — counts only actual detection frames (not rAF frames)
+    detectionCountRef.current += 1;
     if (time - lastFpsUpdateRef.current >= 1000) {
-      setFps(Math.round((frameCountRef.current * 1000) / (time - lastFpsUpdateRef.current)));
-      frameCountRef.current = 0;
+      setFps(Math.round((detectionCountRef.current * 1000) / (time - lastFpsUpdateRef.current)));
+      detectionCountRef.current = 0;
       lastFpsUpdateRef.current = time;
     }
 
@@ -116,10 +174,10 @@ export const useFaceLandmarks = () => {
       setLatency(Math.round(endTime - startTime));
 
       if (results.faceLandmarks && results.faceLandmarks.length > 0) {
-        // Map detected faces
-        const faces = results.faceLandmarks.map((landmarks, faceIdx) => {
-          // Calculate average X coordinate for sorting (Left to Right)
+        // Map detected faces with size information
+        let faces = results.faceLandmarks.map((landmarks, faceIdx) => {
           const avgX = landmarks.reduce((sum, pt) => sum + pt.x, 0) / landmarks.length;
+          const faceSize = computeFaceSize(landmarks);
           
           // Calculate raw smile metric using MediaPipe Face Blendshapes AI model
           const blendshapes = results.faceBlendshapes?.[faceIdx]?.categories;
@@ -138,11 +196,7 @@ export const useFaceLandmarks = () => {
             const avgFrown = (frownLeft + frownRight) / 2;
             const avgBrowDown = (browDownLeft + browDownRight) / 2;
             
-            // Frown score combines physical frowns, brow furrowing, and lip pursing (pucker)
-            // Tuned: frown * 1.3 for sharper frown detection, pucker * 0.8 to quickly override smiles
             const frownScore = Math.max(avgFrown * 1.3, pucker * 0.8, avgBrowDown * 0.6);
-            
-            // Range is roughly [-1.0, +1.0]
             rawSmileMetric = avgSmile - frownScore;
           } else {
             // Fallback to geometric calculations
@@ -161,40 +215,94 @@ export const useFaceLandmarks = () => {
           return {
             landmarks,
             avgX,
+            faceSize,
             rawSmileMetric,
-            calibratedValue: 0 // Will calibrate below after sorting
+            calibratedValue: 0
           };
         });
 
-        // Sort faces descending by raw X to map mirrored screen-left to Player 1
-        faces.sort((a, b) => b.avgX - a.avgX);
+        // ── CROWD INTERFERENCE FILTER ──
+        // If face lock is active and we have locked sizes, reject faces that
+        // are too small (background bystanders standing behind the players).
+        const [lockedSize1, lockedSize2] = lockedFaceSizesRef.current;
+        if (isLockedRef.current && lockedSize1 > 0 && lockedSize2 > 0) {
+          const avgLockedSize = (lockedSize1 + lockedSize2) / 2;
+          const minAcceptableSize = avgLockedSize * 0.45; // faces <45% of player size = bystander
+          
+          // Keep only faces that are large enough to be a real player
+          faces = faces.filter(f => f.faceSize >= minAcceptableSize);
+          
+          // If all faces got filtered (e.g., both players temporarily occluded),
+          // fall back to last known good data
+          if (faces.length === 0 && lastGoodFacesRef.current.length > 0) {
+            setDetectedFaces(lastGoodFacesRef.current);
+            requestRef.current = requestAnimationFrame(detectFrame);
+            return;
+          }
+        }
+
+        // ── FACE LOCKING: Record calibrated face sizes on first 2-face detection ──
+        if (isLockedRef.current && lockedSize1 === -1 && faces.length === 2) {
+          // Sort by X first to establish P1/P2 order, then lock their sizes
+          faces.sort((a, b) => b.avgX - a.avgX);
+          lockedFaceSizesRef.current = [faces[0].faceSize, faces[1].faceSize];
+          console.log('Face sizes LOCKED:', lockedFaceSizesRef.current);
+        }
+
+        // ── STABLE FACE ASSIGNMENT (hysteresis) ──
+        const [lastP1X, lastP2X] = lastAssignmentRef.current;
+        const firstTime = lastP1X === -1;
+
+        if (faces.length === 2) {
+          const [fa, fb] = faces;
+          if (firstTime) {
+            faces.sort((a, b) => b.avgX - a.avgX);
+          } else {
+            const swapThreshold = 0.08;
+            const naturalP1 = fa.avgX > fb.avgX ? fa : fb;
+            const naturalP2 = fa.avgX > fb.avgX ? fb : fa;
+            const distToLastP1 = Math.abs(naturalP1.avgX - lastP1X);
+            const distToLastP2 = Math.abs(naturalP2.avgX - lastP2X);
+            const swappedDistToP1 = Math.abs(naturalP2.avgX - lastP1X);
+            const swappedDistToP2 = Math.abs(naturalP1.avgX - lastP2X);
+
+            if (swappedDistToP1 + swappedDistToP2 < distToLastP1 + distToLastP2 - swapThreshold) {
+              faces[0] = naturalP2;
+              faces[1] = naturalP1;
+            } else {
+              faces[0] = naturalP1;
+              faces[1] = naturalP2;
+            }
+          }
+          lastAssignmentRef.current = [faces[0].avgX, faces[1].avgX];
+        } else if (faces.length === 1) {
+          lastAssignmentRef.current = [faces[0].avgX, -1];
+        }
 
         // Apply calibration to sorted faces
-        const calibratedFaces = faces.map((face, index) => {
+        const calibratedFaces: FaceData[] = faces.map((face, index) => {
           const cal = calibrationRef.current[index] || { neutral: 0.0, smile: 0.5, frown: -0.4 };
           
           let calibratedValue = 0;
           const raw = face.rawSmileMetric;
           
-          const deadZone = 0.12; // 12% dead-zone around neutral to filter out minor twitches
+          const deadZone = 0.12;
           
           if (raw >= cal.neutral) {
-            // Smile side (maps neutral..smile to 0..1)
             const range = cal.smile - cal.neutral;
             const rawNormalized = range > 0 ? (raw - cal.neutral) / range : 0;
             if (rawNormalized > deadZone) {
               const scaled = (rawNormalized - deadZone) / (1 - deadZone);
-              calibratedValue = Math.min(1.0, scaled * 1.15); // Smoothly ramp up with stable 1.15x multiplier
+              calibratedValue = Math.min(1.0, scaled * 1.15);
             } else {
               calibratedValue = 0.0;
             }
           } else {
-            // Frown side (maps frown..neutral to -1..0)
             const range = cal.neutral - cal.frown;
-            const rawNormalized = range > 0 ? (raw - cal.neutral) / range : 0; // Negative value
+            const rawNormalized = range > 0 ? (raw - cal.neutral) / range : 0;
             if (rawNormalized < -deadZone) {
               const scaled = (rawNormalized + deadZone) / (1 - deadZone);
-              calibratedValue = Math.max(-1.0, scaled * 1.15); // Smoothly ramp down
+              calibratedValue = Math.max(-1.0, scaled * 1.15);
             } else {
               calibratedValue = 0.0;
             }
@@ -207,9 +315,16 @@ export const useFaceLandmarks = () => {
           };
         });
 
+        // Store as last known good data for fallback
+        lastGoodFacesRef.current = calibratedFaces;
         setDetectedFaces(calibratedFaces);
       } else {
-        setDetectedFaces([]);
+        // No faces detected — use last good data if locked, otherwise clear
+        if (isLockedRef.current && lastGoodFacesRef.current.length > 0) {
+          setDetectedFaces(lastGoodFacesRef.current);
+        } else {
+          setDetectedFaces([]);
+        }
       }
     } catch (err) {
       console.error("Error in face tracking frame processing:", err);
@@ -270,6 +385,8 @@ export const useFaceLandmarks = () => {
     startTracking,
     stopTracking,
     setCalibration,
-    getCalibration
+    getCalibration,
+    lockFaces,
+    unlockFaces
   };
 };
