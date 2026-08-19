@@ -286,8 +286,8 @@ export default function App() {
       setCalProgress(Math.round(((i + 1) / 20) * 100));
       await new Promise(r => setTimeout(r, 50));
     }
-    const n1 = neutralSamples[0].reduce((s, v) => s + v, 0) / neutralSamples[0].length || 0.0;
-    const n2 = neutralSamples[1].reduce((s, v) => s + v, 0) / neutralSamples[1].length || 0.0;
+    const n1 = neutralSamples[0].length > 0 ? (neutralSamples[0].reduce((s, v) => s + v, 0) / neutralSamples[0].length) : 0.0;
+    const n2 = neutralSamples[1].length > 0 ? (neutralSamples[1].reduce((s, v) => s + v, 0) / neutralSamples[1].length) : 0.0;
 
     // Step 2: SMILE
     setCalStep('smile');
@@ -307,8 +307,8 @@ export default function App() {
       setCalProgress(Math.round(((i + 1) / 20) * 100));
       await new Promise(r => setTimeout(r, 50));
     }
-    const s1 = smileSamples[0].reduce((s, v) => s + v, 0) / smileSamples[0].length || 0.5;
-    const s2 = smileSamples[1].reduce((s, v) => s + v, 0) / smileSamples[1].length || 0.5;
+    const s1 = smileSamples[0].length > 0 ? (smileSamples[0].reduce((s, v) => s + v, 0) / smileSamples[0].length) : 0.5;
+    const s2 = smileSamples[1].length > 0 ? (smileSamples[1].reduce((s, v) => s + v, 0) / smileSamples[1].length) : 0.5;
 
     // Step 3: FROWN
     setCalStep('frown');
@@ -328,8 +328,8 @@ export default function App() {
       setCalProgress(Math.round(((i + 1) / 20) * 100));
       await new Promise(r => setTimeout(r, 50));
     }
-    const f1 = frownSamples[0].reduce((s, v) => s + v, 0) / frownSamples[0].length || -0.4;
-    const f2 = frownSamples[1].reduce((s, v) => s + v, 0) / frownSamples[1].length || -0.4;
+    const f1 = frownSamples[0].length > 0 ? (frownSamples[0].reduce((s, v) => s + v, 0) / frownSamples[0].length) : -0.4;
+    const f2 = frownSamples[1].length > 0 ? (frownSamples[1].reduce((s, v) => s + v, 0) / frownSamples[1].length) : -0.4;
 
     // Save calibration parameters
     setCalibration(0, { neutral: n1, smile: s1, frown: f1 });

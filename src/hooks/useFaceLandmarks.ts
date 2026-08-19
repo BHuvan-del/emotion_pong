@@ -147,7 +147,7 @@ export const useFaceLandmarks = () => {
 
   // Frame detection loop
   const detectFrame = useCallback((time: number) => {
-    if (!landmarker || !videoRef.current || videoRef.current.paused || videoRef.current.ended) {
+    if (!landmarker || !videoRef.current || videoRef.current.paused || videoRef.current.ended || videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0) {
       requestRef.current = requestAnimationFrame(detectFrame);
       return;
     }
