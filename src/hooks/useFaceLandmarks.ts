@@ -255,31 +255,10 @@ export const useFaceLandmarks = () => {
           console.log('Face sizes LOCKED:', lockedFaceSizesRef.current);
         }
 
-        // ── STABLE FACE ASSIGNMENT (hysteresis) ──
-        const [lastP1X, lastP2X] = lastAssignmentRef.current;
-        const firstTime = lastP1X === -1;
-
+        // ── STABLE FACE ASSIGNMENT ──
+        // Sort faces by descending avgX (mirrored video: highest avgX = screen-left = Player 1)
         if (faces.length === 2) {
-          const [fa, fb] = faces;
-          if (firstTime) {
-            faces.sort((a, b) => b.avgX - a.avgX);
-          } else {
-            const swapThreshold = 0.08;
-            const naturalP1 = fa.avgX > fb.avgX ? fa : fb;
-            const naturalP2 = fa.avgX > fb.avgX ? fb : fa;
-            const distToLastP1 = Math.abs(naturalP1.avgX - lastP1X);
-            const distToLastP2 = Math.abs(naturalP2.avgX - lastP2X);
-            const swappedDistToP1 = Math.abs(naturalP2.avgX - lastP1X);
-            const swappedDistToP2 = Math.abs(naturalP1.avgX - lastP2X);
-
-            if (swappedDistToP1 + swappedDistToP2 < distToLastP1 + distToLastP2 - swapThreshold) {
-              faces[0] = naturalP2;
-              faces[1] = naturalP1;
-            } else {
-              faces[0] = naturalP1;
-              faces[1] = naturalP2;
-            }
-          }
+          faces.sort((a, b) => b.avgX - a.avgX);
           lastAssignmentRef.current = [faces[0].avgX, faces[1].avgX];
         } else if (faces.length === 1) {
           lastAssignmentRef.current = [faces[0].avgX, -1];
