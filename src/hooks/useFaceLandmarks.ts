@@ -193,7 +193,6 @@ export const useFaceLandmarks = () => {
             const smileRight = blendshapes.find(c => c.categoryName === 'mouthSmileRight')?.score || 0;
             const frownLeft = blendshapes.find(c => c.categoryName === 'mouthFrownLeft')?.score || 0;
             const frownRight = blendshapes.find(c => c.categoryName === 'mouthFrownRight')?.score || 0;
-            const pucker = blendshapes.find(c => c.categoryName === 'mouthPucker')?.score || 0;
             const browDownLeft = blendshapes.find(c => c.categoryName === 'browDownLeft')?.score || 0;
             const browDownRight = blendshapes.find(c => c.categoryName === 'browDownRight')?.score || 0;
 
@@ -201,7 +200,11 @@ export const useFaceLandmarks = () => {
             const avgFrown = (frownLeft + frownRight) / 2;
             const avgBrowDown = (browDownLeft + browDownRight) / 2;
             
-            const frownScore = Math.max(avgFrown * 1.3, pucker * 0.8, avgBrowDown * 0.6);
+            // Frown score: requires explicit mouth frown or brow furrowing (>0.20 threshold)
+            // Prevents resting mouth pucker or eye brow relaxation from causing false downward drift
+            const explicitFrown = avgFrown > 0.05 ? avgFrown * 1.2 : 0;
+            const explicitBrow = avgBrowDown > 0.25 ? avgBrowDown * 0.5 : 0;
+            const frownScore = Math.max(explicitFrown, explicitBrow);
             rawSmileMetric = avgSmile - frownScore;
           } else {
             // Fallback to geometric calculations
@@ -291,26 +294,22 @@ export const useFaceLandmarks = () => {
           let targetValue = 0;
           const raw = face.rawSmileMetric;
           
-          const deadZone = 0.12;
+          // Absolute raw threshold around neutral: within +-0.08 raw units = solid neutral (0.0)
+          const rawDelta = raw - cal.neutral;
+          const neutralTolerance = 0.08;
           
-          if (raw >= cal.neutral) {
-            const range = cal.smile - cal.neutral;
-            const rawNormalized = range > 0 ? (raw - cal.neutral) / range : 0;
-            if (rawNormalized > deadZone) {
-              const scaled = (rawNormalized - deadZone) / (1 - deadZone);
-              targetValue = Math.min(1.0, scaled * 1.15);
-            } else {
-              targetValue = 0.0;
-            }
+          if (Math.abs(rawDelta) <= neutralTolerance) {
+            targetValue = 0.0;
+          } else if (rawDelta > neutralTolerance) {
+            // Smile branch (maps neutral + tolerance .. smile to 0.0 .. 1.0)
+            const range = cal.smile - (cal.neutral + neutralTolerance);
+            const normalized = range > 0 ? (raw - (cal.neutral + neutralTolerance)) / range : 0;
+            targetValue = Math.min(1.0, normalized * 1.15);
           } else {
-            const range = cal.neutral - cal.frown;
-            const rawNormalized = range > 0 ? (raw - cal.neutral) / range : 0;
-            if (rawNormalized < -deadZone) {
-              const scaled = (rawNormalized + deadZone) / (1 - deadZone);
-              targetValue = Math.max(-1.0, scaled * 1.15);
-            } else {
-              targetValue = 0.0;
-            }
+            // Frown branch (maps frown .. neutral - tolerance to -1.0 .. 0.0)
+            const range = (cal.neutral - neutralTolerance) - cal.frown;
+            const normalized = range > 0 ? ((cal.neutral - neutralTolerance) - raw) / range : 0;
+            targetValue = Math.max(-1.0, -normalized * 1.15);
           }
 
           // Apply EMA smoothing (alpha = 0.35)
