@@ -193,6 +193,7 @@ export const useFaceLandmarks = () => {
             const smileRight = blendshapes.find(c => c.categoryName === 'mouthSmileRight')?.score || 0;
             const frownLeft = blendshapes.find(c => c.categoryName === 'mouthFrownLeft')?.score || 0;
             const frownRight = blendshapes.find(c => c.categoryName === 'mouthFrownRight')?.score || 0;
+            const pucker = blendshapes.find(c => c.categoryName === 'mouthPucker')?.score || 0;
             const browDownLeft = blendshapes.find(c => c.categoryName === 'browDownLeft')?.score || 0;
             const browDownRight = blendshapes.find(c => c.categoryName === 'browDownRight')?.score || 0;
 
@@ -200,11 +201,8 @@ export const useFaceLandmarks = () => {
             const avgFrown = (frownLeft + frownRight) / 2;
             const avgBrowDown = (browDownLeft + browDownRight) / 2;
             
-            // Frown score: requires explicit mouth frown or brow furrowing (>0.20 threshold)
-            // Prevents resting mouth pucker or eye brow relaxation from causing false downward drift
-            const explicitFrown = avgFrown > 0.05 ? avgFrown * 1.2 : 0;
-            const explicitBrow = avgBrowDown > 0.25 ? avgBrowDown * 0.5 : 0;
-            const frownScore = Math.max(explicitFrown, explicitBrow);
+            // Frown score: highly responsive composite of mouth frown (2.5x), brow lowering (1.5x), and lip pucker (1.0x)
+            const frownScore = Math.max(avgFrown * 2.5, avgBrowDown * 1.5, pucker * 1.0);
             rawSmileMetric = avgSmile - frownScore;
           } else {
             // Fallback to geometric calculations
@@ -294,9 +292,9 @@ export const useFaceLandmarks = () => {
           let targetValue = 0;
           const raw = face.rawSmileMetric;
           
-          // Absolute raw threshold around neutral: within +-0.08 raw units = solid neutral (0.0)
+          // Absolute raw threshold around neutral: within +-0.04 raw units = neutral (0.0)
           const rawDelta = raw - cal.neutral;
-          const neutralTolerance = 0.08;
+          const neutralTolerance = 0.04;
           
           if (Math.abs(rawDelta) <= neutralTolerance) {
             targetValue = 0.0;
