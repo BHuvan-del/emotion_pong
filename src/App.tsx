@@ -106,8 +106,8 @@ export default function App() {
 
   const handleRegisterAndStart = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!p1Name.trim() || !p1Contact.trim()) {
-      setLeadError('PLAYER 1 NAME AND CONTACT NUMBER ARE REQUIRED!');
+    if (!p1Name.trim() || p1Name === 'Player 1') {
+      setLeadError('PLAYER 1 NAME IS REQUIRED!');
       return;
     }
     
@@ -117,7 +117,14 @@ export default function App() {
       return;
     }
 
-    if (p2Contact.trim()) {
+    const hasP2Name = p2Name.trim() && p2Name !== 'Player 2';
+    const hasP2Contact = p2Contact.trim().length > 0;
+
+    if (hasP2Name || hasP2Contact) {
+      if (!hasP2Name) {
+        setLeadError('PLAYER 2 NAME IS REQUIRED!');
+        return;
+      }
       const p2Digits = p2Contact.replace(/\D/g, '');
       if (p2Digits.length < 10) {
         setLeadError('PLAYER 2 CONTACT NUMBER MUST BE AT LEAST 10 DIGITS!');
@@ -572,7 +579,7 @@ export default function App() {
                       className="bg-black border border-blue-500/30 text-blue-400 p-3 text-sm font-mono focus:border-blue-500 focus:outline-none"
                     />
                     {p2Contact.trim().length > 0 && p2Contact.replace(/\D/g, '').length < 10 && (
-                      <span className="text-[10px] font-mono text-yellow-400 font-bold animate-pulse">
+                      <span className="text-[10px] font-mono text-blue-400 font-bold animate-pulse">
                         ⚠️ CONTACT NUMBER MUST BE AT LEAST 10 DIGITS ({p2Contact.replace(/\D/g, '').length}/10)
                       </span>
                     )}
