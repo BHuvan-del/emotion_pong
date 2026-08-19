@@ -358,7 +358,7 @@ export default function App() {
     }, 1000);
   };
 
-  // Sync state to refs and BGM pause loop
+  // Sync state to refs and BGM pause loop + cleanup interval on unmount/screen change
   useEffect(() => {
     isPausedRef.current = isPaused;
     if (isPaused) {
@@ -366,6 +366,13 @@ export default function App() {
     } else if (screen === 'match' && !muted) {
       startBackgroundMusic();
     }
+
+    return () => {
+      if (screen !== 'match' && matchIntervalRef.current) {
+        clearInterval(matchIntervalRef.current);
+        matchIntervalRef.current = null;
+      }
+    };
   }, [isPaused, screen, muted]);
 
   useEffect(() => {
@@ -874,11 +881,11 @@ export default function App() {
                     </div>
                     <div className="flex justify-between">
                       <span className="flex items-center gap-1"><TrendingUp className="w-2.5 h-2.5 text-yellow-600" /> PEAK EXPRESSION (P1):</span>
-                      <span className="text-yellow-300 font-bold">{(matchStats.maxSmileP1 * 100).toFixed(0)}% SMILE</span>
+                      <span className="text-yellow-300 font-bold">{Math.max(0, Math.round(matchStats.maxSmileP1 * 100))}% SMILE</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="flex items-center gap-1"><TrendingUp className="w-2.5 h-2.5 text-yellow-600" /> PEAK EXPRESSION (P2):</span>
-                      <span className="text-yellow-300 font-bold">{(matchStats.maxSmileP2 * 100).toFixed(0)}% SMILE</span>
+                      <span className="text-yellow-300 font-bold">{Math.max(0, Math.round(matchStats.maxSmileP2 * 100))}% SMILE</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="flex items-center gap-1"><RotateCcw className="w-2.5 h-2.5 text-yellow-600" /> AVG INFERENCE RATE:</span>
