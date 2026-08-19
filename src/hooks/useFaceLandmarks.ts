@@ -257,6 +257,7 @@ export const useFaceLandmarks = () => {
         }
 
         // ── STABLE FACE ASSIGNMENT ──
+        // ── STABLE FACE ASSIGNMENT ──
         // Sort faces by descending avgX (mirrored video: highest avgX = screen-left = Player 1)
         if (faces.length === 2) {
           faces.sort((a, b) => b.avgX - a.avgX);
@@ -267,28 +268,27 @@ export const useFaceLandmarks = () => {
 
         // Apply calibration to sorted faces with EMA smoothing
         const calibratedFaces: FaceData[] = faces.map((face, index) => {
-          const cal = calibrationRef.current[index] || { neutral: 0.0, smile: 0.5, frown: -0.4 };
+          const cal = calibrationRef.current[index] || { neutral: 0.0, smile: 0.4, frown: -0.3 };
           
           let targetValue = 0;
           const raw = face.rawSmileMetric;
-          
-          // Absolute raw threshold around neutral: within +-0.02 raw units = neutral (0.0)
           const rawDelta = raw - cal.neutral;
-          const neutralTolerance = 0.02;
-          
-          if (Math.abs(rawDelta) <= neutralTolerance) {
+          const neutralDeadzone = 0.02;
+
+          // Compute dynamic ranges (guaranteed min 0.10 to prevent division issues)
+          const smileRange = Math.max(0.10, cal.smile - cal.neutral);
+          const frownRange = Math.max(0.10, cal.neutral - cal.frown);
+
+          if (Math.abs(rawDelta) <= neutralDeadzone) {
             targetValue = 0.0;
-          } else if (rawDelta > neutralTolerance) {
-            // Smile branch (maps neutral + tolerance .. smile to 0.0 .. 1.0)
-            const range = cal.smile - (cal.neutral + neutralTolerance);
-            const normalized = range > 0 ? (raw - (cal.neutral + neutralTolerance)) / range : 0;
-            targetValue = Math.min(1.0, normalized * 1.45);
+          } else if (rawDelta > neutralDeadzone) {
+            // Smile branch (UP): 50% effort = 100% paddle height
+            const normalizedSmile = (rawDelta - neutralDeadzone) / (smileRange * 0.45);
+            targetValue = Math.min(1.0, normalizedSmile);
           } else {
-            // Frown branch (maps frown .. neutral - tolerance to -1.0 .. 0.0)
-            // Ultra-sensitive 3.80x multiplier so even the slightest frown moves paddle down instantly
-            const range = (cal.neutral - neutralTolerance) - cal.frown;
-            const normalized = range > 0 ? ((cal.neutral - neutralTolerance) - raw) / range : 0;
-            targetValue = Math.max(-1.0, -normalized * 3.80);
+            // Frown branch (DOWN): 50% effort = 100% paddle height
+            const normalizedFrown = (-rawDelta - neutralDeadzone) / (frownRange * 0.45);
+            targetValue = Math.max(-1.0, -normalizedFrown);
           }
 
           // Apply EMA smoothing (alpha = 0.35)

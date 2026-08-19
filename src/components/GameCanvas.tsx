@@ -173,7 +173,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const targetP2Y = centerY - curP2Val * halfRange;
 
       // Smooth interpolation (lerp) — 0.28 = effortless gliding (~130ms reach)
-      state.p1Y += (targetP1Y - state.p1Y) * 0.28;
+      state.p1Y += (targetP1Y - state.p1Y) * 0.35;
 
       if (curIsSinglePlayer) {
         const aiTargetY = state.ballY - paddleHeight / 2;

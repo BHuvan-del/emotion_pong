@@ -331,11 +331,9 @@ export default function App() {
     const f1 = frownSamples[0].length > 0 ? (frownSamples[0].reduce((s, v) => s + v, 0) / frownSamples[0].length) : -0.4;
     const f2 = frownSamples[1].length > 0 ? (frownSamples[1].reduce((s, v) => s + v, 0) / frownSamples[1].length) : -0.4;
 
-    // Save calibration parameters — scale frown baseline by 1.6x so small frowns trigger maximum response
-    const sensitiveFrown1 = Math.min(-0.15, (f1 - n1) * 1.6 + n1);
-    const sensitiveFrown2 = Math.min(-0.15, (f2 - n2) * 1.6 + n2);
-    setCalibration(0, { neutral: n1, smile: s1, frown: sensitiveFrown1 });
-    setCalibration(1, { neutral: n2, smile: s2, frown: sensitiveFrown2 });
+    // Save calibration parameters cleanly
+    setCalibration(0, { neutral: n1, smile: s1, frown: f1 });
+    setCalibration(1, { neutral: n2, smile: s2, frown: f2 });
     
     setCalStep('complete');
     lockFaces(); // ARM crowd interference filter — reject bystander faces during gameplay
