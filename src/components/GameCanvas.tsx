@@ -179,7 +179,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const aiTargetY = state.ballY - paddleHeight / 2;
         state.p2Y += (aiTargetY - state.p2Y) * 0.14;
       } else {
-        state.p2Y += (targetP2Y - state.p2Y) * 0.28;
+        state.p2Y += (targetP2Y - state.p2Y) * 0.35;
       }
 
       // Clamp

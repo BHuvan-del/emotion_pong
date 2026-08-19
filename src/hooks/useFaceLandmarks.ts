@@ -272,9 +272,9 @@ export const useFaceLandmarks = () => {
           let targetValue = 0;
           const raw = face.rawSmileMetric;
           
-          // Absolute raw threshold around neutral: within +-0.04 raw units = neutral (0.0)
+          // Absolute raw threshold around neutral: within +-0.02 raw units = neutral (0.0)
           const rawDelta = raw - cal.neutral;
-          const neutralTolerance = 0.04;
+          const neutralTolerance = 0.02;
           
           if (Math.abs(rawDelta) <= neutralTolerance) {
             targetValue = 0.0;
@@ -285,10 +285,10 @@ export const useFaceLandmarks = () => {
             targetValue = Math.min(1.0, normalized * 1.45);
           } else {
             // Frown branch (maps frown .. neutral - tolerance to -1.0 .. 0.0)
-            // Boosted multiplier 2.50x to match webcam frown sensitivity with smile sensitivity
+            // Ultra-sensitive 3.80x multiplier so even the slightest frown moves paddle down instantly
             const range = (cal.neutral - neutralTolerance) - cal.frown;
             const normalized = range > 0 ? ((cal.neutral - neutralTolerance) - raw) / range : 0;
-            targetValue = Math.max(-1.0, -normalized * 2.50);
+            targetValue = Math.max(-1.0, -normalized * 3.80);
           }
 
           // Apply EMA smoothing (alpha = 0.35)
