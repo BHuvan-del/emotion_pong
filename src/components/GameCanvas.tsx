@@ -172,15 +172,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const targetP1Y = centerY - curP1Val * halfRange;
       const targetP2Y = centerY - curP2Val * halfRange;
 
-      // Smooth interpolation (lerp) — 0.30 = 90% response in ~120ms
-      // Fast enough for arcade crowds, smooth enough to not feel jerky
-      state.p1Y += (targetP1Y - state.p1Y) * 0.18;
+      // Smooth interpolation (lerp) — 0.28 = effortless gliding (~130ms reach)
+      state.p1Y += (targetP1Y - state.p1Y) * 0.28;
 
       if (curIsSinglePlayer) {
         const aiTargetY = state.ballY - paddleHeight / 2;
         state.p2Y += (aiTargetY - state.p2Y) * 0.14;
       } else {
-        state.p2Y += (targetP2Y - state.p2Y) * 0.18;
+        state.p2Y += (targetP2Y - state.p2Y) * 0.28;
       }
 
       // Clamp

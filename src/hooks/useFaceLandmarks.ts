@@ -304,12 +304,12 @@ export const useFaceLandmarks = () => {
             // Smile branch (maps neutral + tolerance .. smile to 0.0 .. 1.0)
             const range = cal.smile - (cal.neutral + neutralTolerance);
             const normalized = range > 0 ? (raw - (cal.neutral + neutralTolerance)) / range : 0;
-            targetValue = Math.min(1.0, normalized * 1.15);
+            targetValue = Math.min(1.0, normalized * 1.45);
           } else {
             // Frown branch (maps frown .. neutral - tolerance to -1.0 .. 0.0)
             const range = (cal.neutral - neutralTolerance) - cal.frown;
             const normalized = range > 0 ? ((cal.neutral - neutralTolerance) - raw) / range : 0;
-            targetValue = Math.max(-1.0, -normalized * 1.15);
+            targetValue = Math.max(-1.0, -normalized * 1.45);
           }
 
           // Apply EMA smoothing (alpha = 0.35)
