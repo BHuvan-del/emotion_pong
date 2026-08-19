@@ -201,8 +201,9 @@ export const useFaceLandmarks = () => {
             const avgFrown = (frownLeft + frownRight) / 2;
             const avgBrowDown = (browDownLeft + browDownRight) / 2;
             
-            // Frown score: highly responsive composite of mouth frown (3.5x), brow lowering (2.5x), and lip pucker (1.8x)
-            const frownScore = Math.max(avgFrown * 3.5, avgBrowDown * 2.5, pucker * 1.8);
+            // Frown score: smooth additive composite formula (no Math.max jumps)
+            // Ensures continuous, silky-smooth downward paddle movement
+            const frownScore = (avgFrown * 2.5) + (avgBrowDown * 1.4) + (pucker * 1.0);
             rawSmileMetric = avgSmile - frownScore;
           } else {
             // Fallback to geometric calculations
