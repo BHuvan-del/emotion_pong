@@ -111,6 +111,20 @@ export default function App() {
       return;
     }
     
+    const p1Digits = p1Contact.replace(/\D/g, '');
+    if (p1Digits.length < 10) {
+      setLeadError('PLAYER 1 CONTACT NUMBER MUST BE AT LEAST 10 DIGITS!');
+      return;
+    }
+
+    if (p2Contact.trim()) {
+      const p2Digits = p2Contact.replace(/\D/g, '');
+      if (p2Digits.length < 10) {
+        setLeadError('PLAYER 2 CONTACT NUMBER MUST BE AT LEAST 10 DIGITS!');
+        return;
+      }
+    }
+
     setIsSubmittingLeads(true);
     setLeadError('');
     
@@ -526,12 +540,17 @@ export default function App() {
                     <label className="text-[11px] font-arcade text-red-400 mt-1">PLAYER 1 CONTACT NUMBER *</label>
                     <input 
                       type="tel" 
-                      placeholder="ENTER CONTACT NUMBER"
+                      placeholder="ENTER 10-DIGIT CONTACT NUMBER"
                       value={p1Contact} 
                       onChange={(e) => setP1Contact(e.target.value.substring(0, 15))} 
                       className="bg-black border border-red-500/30 text-red-400 p-3 text-sm font-mono focus:border-red-500 focus:outline-none"
                       required
                     />
+                    {p1Contact.trim().length > 0 && p1Contact.replace(/\D/g, '').length < 10 && (
+                      <span className="text-[10px] font-mono text-red-400 font-bold animate-pulse">
+                        ⚠️ CONTACT NUMBER MUST BE AT LEAST 10 DIGITS ({p1Contact.replace(/\D/g, '').length}/10)
+                      </span>
+                    )}
                   </div>
 
                   {/* Player 2 details */}
@@ -547,11 +566,16 @@ export default function App() {
                     <label className="text-[11px] font-arcade text-blue-400 mt-1">PLAYER 2 CONTACT NUMBER (OPTIONAL)</label>
                     <input 
                       type="tel" 
-                      placeholder="ENTER P2 CONTACT NUMBER"
+                      placeholder="ENTER P2 10-DIGIT CONTACT NUMBER"
                       value={p2Contact} 
                       onChange={(e) => setP2Contact(e.target.value.substring(0, 15))} 
                       className="bg-black border border-blue-500/30 text-blue-400 p-3 text-sm font-mono focus:border-blue-500 focus:outline-none"
                     />
+                    {p2Contact.trim().length > 0 && p2Contact.replace(/\D/g, '').length < 10 && (
+                      <span className="text-[10px] font-mono text-yellow-400 font-bold animate-pulse">
+                        ⚠️ CONTACT NUMBER MUST BE AT LEAST 10 DIGITS ({p2Contact.replace(/\D/g, '').length}/10)
+                      </span>
+                    )}
                   </div>
 
                   <button
