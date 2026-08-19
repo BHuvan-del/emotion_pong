@@ -201,8 +201,8 @@ export const useFaceLandmarks = () => {
             const avgFrown = (frownLeft + frownRight) / 2;
             const avgBrowDown = (browDownLeft + browDownRight) / 2;
             
-            // Frown score: highly responsive composite of mouth frown (2.5x), brow lowering (1.5x), and lip pucker (1.0x)
-            const frownScore = Math.max(avgFrown * 2.5, avgBrowDown * 1.5, pucker * 1.0);
+            // Frown score: highly responsive composite of mouth frown (3.5x), brow lowering (2.5x), and lip pucker (1.8x)
+            const frownScore = Math.max(avgFrown * 3.5, avgBrowDown * 2.5, pucker * 1.8);
             rawSmileMetric = avgSmile - frownScore;
           } else {
             // Fallback to geometric calculations
@@ -305,9 +305,10 @@ export const useFaceLandmarks = () => {
             targetValue = Math.min(1.0, normalized * 1.45);
           } else {
             // Frown branch (maps frown .. neutral - tolerance to -1.0 .. 0.0)
+            // Boosted multiplier 2.50x to match webcam frown sensitivity with smile sensitivity
             const range = (cal.neutral - neutralTolerance) - cal.frown;
             const normalized = range > 0 ? ((cal.neutral - neutralTolerance) - raw) / range : 0;
-            targetValue = Math.max(-1.0, -normalized * 1.45);
+            targetValue = Math.max(-1.0, -normalized * 2.50);
           }
 
           // Apply EMA smoothing (alpha = 0.35)
