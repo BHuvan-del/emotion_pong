@@ -136,11 +136,12 @@ export default function App() {
     setLeadError('');
     
     try {
-      // Register Player 1
+      // Register Player 1 (with 1.5s timeout for instant offline fail-safe fallback)
       await fetch('http://localhost:3001/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: p1Name.trim(), contact: p1Contact.trim() })
+        body: JSON.stringify({ name: p1Name.trim(), contact: p1Contact.trim() }),
+        signal: AbortSignal.timeout(1500)
       });
       
       // Register Player 2 if provided
@@ -148,7 +149,8 @@ export default function App() {
         await fetch('http://localhost:3001/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: p2Name.trim(), contact: p2Contact.trim() })
+          body: JSON.stringify({ name: p2Name.trim(), contact: p2Contact.trim() }),
+          signal: AbortSignal.timeout(1500)
         });
       } else if (!p2Name.trim() || p2Name === 'Player 2') {
         setP2Name('COMPUTER');

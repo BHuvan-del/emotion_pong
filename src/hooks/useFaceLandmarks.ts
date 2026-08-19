@@ -348,11 +348,15 @@ export const useFaceLandmarks = () => {
   const startTracking = useCallback((videoElement: HTMLVideoElement) => {
     videoRef.current = videoElement;
     
+    // Apply digital exposure gain filter to video element so MediaPipe receives bright, high-contrast frames in dark venue lighting
+    videoElement.style.filter = 'brightness(1.25) contrast(1.15)';
+    
     navigator.mediaDevices.getUserMedia({
       video: {
-        width: 640,
-        height: 480,
-        facingMode: 'user'
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        facingMode: 'user',
+        frameRate: { ideal: 30, min: 15 }
       },
       audio: false
     })
