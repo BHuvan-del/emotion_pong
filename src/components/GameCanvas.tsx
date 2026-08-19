@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from 'react';
 import { playPaddleHit, playWallHit, playScore } from '../utils/audio';
-import { sendSerialCommand } from '../utils/serial';
 
 interface GameCanvasProps {
   p1Val: number; // -1 to +1
@@ -259,11 +258,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           state.p2Score += 1;
           onScoreUpdateRef.current(state.p1Score, state.p2Score);
           playScore();
-          sendSerialCommand('2');
           
           if (state.p2Score >= 5) {
             state.isFinished = true;
-            sendSerialCommand('W');
             onWinRef.current('PLAYER 2', state.p1Score, state.p2Score);
           } else {
             state.lastRallySpeed = Math.abs(state.ballSpeedX);
@@ -273,11 +270,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           state.p1Score += 1;
           onScoreUpdateRef.current(state.p1Score, state.p2Score);
           playScore();
-          sendSerialCommand('1');
           
           if (state.p1Score >= 5) {
             state.isFinished = true;
-            sendSerialCommand('W');
             onWinRef.current('PLAYER 1', state.p1Score, state.p2Score);
           } else {
             state.lastRallySpeed = Math.abs(state.ballSpeedX);

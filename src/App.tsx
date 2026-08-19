@@ -885,7 +885,7 @@ export default function App() {
 
       {/* FOOTER SECTION */}
       <footer className="w-full max-w-[95vw] border-t border-yellow-500/30 pt-2 flex justify-between items-center text-[10px] font-mono text-yellow-600/80 z-10 uppercase">
-        <span>STALL_HARDWARE: DISCOVERABLE</span>
+        <span>EMOTION PONG // IETE</span>
         <span>© 2026 INSTITUTION OF ELECTRONICS AND TELECOMMUNICATION ENGINEERS</span>
         <span>SYSTEM_STATUS: OK</span>
       </footer>
